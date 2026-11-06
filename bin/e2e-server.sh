@@ -55,4 +55,5 @@ PHP
 php "$ROOT/tests/e2e/setup-site.php" "$SITE" install
 php "$ROOT/tests/e2e/setup-site.php" "$SITE" configure
 echo "Serving $SITE on http://127.0.0.1:$PORT (admin / e2e-password)"
-exec php -S "127.0.0.1:$PORT" -t "$SITE"
+# Several workers: live-change checks fetch the site's own pages while a request is running.
+PHP_CLI_SERVER_WORKERS=4 exec php -S "127.0.0.1:$PORT" -t "$SITE"

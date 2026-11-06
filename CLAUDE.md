@@ -24,6 +24,8 @@ Read the specs in `docs/` before writing code. They are the source of truth. If 
 | `docs/11-testing-and-acceptance.md` | Test strategy, compatibility checks, acceptance criteria |
 | `docs/12-rollout-and-open-questions.md` | Milestones, rollout, risks, open questions |
 | `docs/13-build-plan.md` | Build sequencing, tooling, test environments and per-milestone exit criteria |
+| `docs/security-report.md` | Security review against the `docs/09` checklist: evidence per item, fixes, accepted risks, open items |
+| `docs/compatibility-report-template.md` | Per-site staging compatibility report (`docs/11`) |
 | `docs/reference/existing-plugins.md` | The site's existing MP Visits and Causeway Insights plugins (read-only reference) |
 | `docs/reference/mp-visits-findings.md` | MP Visits source findings: confirmed `visits_location` format, postcode service, map behaviour |
 | `docs/reference/mcp-adapter-notes.md` | MCP Adapter 0.7.1 answers: server creation, default server, naming, errors, coexistence, bundling deprecation |
@@ -68,6 +70,8 @@ bin/smoke-test.sh                   # installs the zip on fresh WordPress sites 
 npx wp-env start                    # optional local WordPress site with the plugin mounted
 npm install && npm run build        # admin CSS + JS (from M8)
 npm run build:extension             # bundles the Claude Desktop extension's proxy (from M9)
+bin/e2e-server.sh                   # throwaway SQLite site for the browser tests (Playwright starts it itself)
+php bin/make-pot.php                # regenerates languages/causeway-claude-bridge.pot (CI checks it)
 npx playwright test                 # admin UI visual, keyboard and a11y tests (from M8)
 ```
 

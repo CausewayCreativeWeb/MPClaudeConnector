@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Causeway\ClaudeBridge\Admin;
 
 use Causeway\ClaudeBridge\Audit\ActivityLog;
+use Causeway\ClaudeBridge\Audit\DebugLog;
 use Causeway\ClaudeBridge\Checks\HealthCheck;
 use Causeway\ClaudeBridge\Config\ConfigDiff;
 use Causeway\ClaudeBridge\Config\ConfigRepository;
@@ -36,7 +37,7 @@ final class RestController {
 
 	public const IMPORT_MAX_BYTES = 262144;
 
-	public const OPTION_DEBUG_UNTIL = 'ccb_debug_until';
+	public const OPTION_DEBUG_UNTIL = DebugLog::OPTION;
 
 	/**
 	 * Hooks the routes.
@@ -725,11 +726,14 @@ final class RestController {
 			update_option( Uninstaller::OPTION_DELETE_DATA, (bool) $request->get_param( 'delete_data_on_uninstall' ) ? 1 : 0, false );
 		}
 		if ( null !== $request->get_param( 'debug' ) ) {
-			if ( (bool) $request->get_param( 'debug' ) ) {
-				update_option( self::OPTION_DEBUG_UNTIL, time() + DAY_IN_SECONDS, false );
-			} else {
-				delete_option( self::OPTION_DEBUG_UNTIL );
-			}
+			DebugLog::set( (bool) $request->get_param( 'debug' ) );
+			ActivityLog::record(
+				array(
+					'action'  => 'config_save',
+					'result'  => 'success',
+					'message' => (bool) $request->get_param( 'debug' ) ? __( 'Debug mode on for 24 hours', 'causeway-claude-bridge' ) : __( 'Debug mode off', 'causeway-claude-bridge' ),
+				)
+			);
 		}
 		return new WP_REST_Response( self::settings() );
 	}
@@ -740,8 +744,8 @@ final class RestController {
 	 * @return array{delete_data_on_uninstall: bool, debug: bool, debug_until: string}
 	 */
 	private static function settings(): array {
+		$on    = DebugLog::enabled();
 		$until = (int) get_option( self::OPTION_DEBUG_UNTIL, 0 );
-		$on    = $until > time();
 		return array(
 			'delete_data_on_uninstall' => (bool) get_option( Uninstaller::OPTION_DELETE_DATA, false ),
 			'debug'                    => $on,

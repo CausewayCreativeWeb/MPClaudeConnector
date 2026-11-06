@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Causeway\ClaudeBridge\Abilities;
 
 use Causeway\ClaudeBridge\Audit\ActivityLog;
+use Causeway\ClaudeBridge\Audit\DebugLog;
 use Causeway\ClaudeBridge\Audit\RequestContext;
 use Causeway\ClaudeBridge\Config\ConfigRepository;
 use Causeway\ClaudeBridge\Roles\RoleManager;
@@ -186,6 +187,7 @@ abstract class AbstractAbility {
 			return $error;
 		}
 
+		DebugLog::log( $this->name() . ' input', $input );
 		try {
 			$result = $this->run( $input, $context );
 		} catch ( Throwable $exception ) {
@@ -202,6 +204,14 @@ abstract class AbstractAbility {
 				$ref
 			);
 		}
+
+		DebugLog::log(
+			$this->name() . ' result',
+			$result instanceof WP_Error ? array(
+				'error'   => $result->get_error_code(),
+				'message' => $result->get_error_message(),
+			) : $result
+		);
 
 		if ( $result instanceof WP_Error ) {
 			$result = AbilityError::with_ref( $result, RequestContext::request_ref() );

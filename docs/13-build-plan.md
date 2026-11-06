@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1–M9 done**: all 21 abilities in `docs/03`, live changes with confirmation tokens, emails, health checks, the Settings → Claude Publishing screen and the setup pack. Next: M10 (hardening) |
+| Code | **M1–M10 done**: all 21 abilities in `docs/03`, live changes with confirmation tokens, emails, health checks, the Settings → Claude Publishing screen, the setup pack, and the hardening pass (`docs/security-report.md`). Next: site audit and pilot (`docs/12` rollout) |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -21,9 +21,9 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | `visits_location` JSON shape and the postcode service the admin map uses | `05`, reference | `visits-admin-map.js` in MP Visits 1.3 | **Resolved** from client-supplied source: `{"lat":<number>,"lng":<number>}`; postcodes.io with the compact postcode. See `docs/reference/mp-visits-findings.md` |
 | Elementor Pro single-template condition meta keys | `04` | Site's Elementor Pro version | Site audit |
 | SEO plugin in use | `05` | Client | **Resolved:** SEOPress on all Causeway sites. Writes go to `_seopress_titles_title` and `_seopress_titles_desc` (per `docs/05`); still confirm the keys against the installed SEOPress version during the site audit |
-| MCPB `manifest_version` and fields | `10` | `@anthropic-ai/mcpb` | `mcpb init` / `mcpb validate` against the current CLI |
-| Proxy env var names; turning off OAuth discovery | `10` | `@automattic/mcp-wordpress-remote` 0.5.5 | Package README and source |
-| Tailwind v4 `prefix()` import syntax | `08` | Pinned `@tailwindcss/cli` | Compile a test file |
+| MCPB `manifest_version` and fields | `10` | `@anthropic-ai/mcpb` | **Resolved in M9**: 0.3, validated with `mcpb` 2.1.2 (see M9 table) |
+| Proxy env var names; turning off OAuth discovery | `10` | `@automattic/mcp-wordpress-remote` 0.5.5 | **Resolved in M9**: `WP_API_URL`, `WP_API_USERNAME`, `WP_API_PASSWORD`, `OAUTH_ENABLED=false`; verified end to end |
+| Tailwind v4 `prefix()` import syntax | `08` | Pinned `@tailwindcss/cli` | **Resolved in M8**: `prefix(ccb)` on the import, classes `ccb:flex` (see M8 table) |
 
 ## 1. Tooling baseline (delivered with M1)
 
@@ -84,7 +84,7 @@ Another plugin on a client site may load its own copy of the MCP Adapter, Opis J
 ### Release build (`bin/build-release.sh`, run in CI on tags)
 1. `composer install --no-dev --optimize-autoloader`, which also runs Strauss.
 2. `npm ci && npm run build` (admin CSS and JS into `assets/dist/`).
-3. `npm ci --omit=dev` in `setup-pack/extension/server/` so the pinned `@automattic/mcp-wordpress-remote` is bundled for the Claude Desktop extension (`docs/10`).
+3. `npm run build:extension`: bundles the pinned `@automattic/mcp-wordpress-remote` into `setup-pack/extension/server/index.js` for the Claude Desktop extension (`docs/10`; changed in M9 from shipping `node_modules`).
 4. Copy into `build/causeway-claude-bridge/` using `.distignore`. Excluded: `tests/`, `docs/`, root `node_modules/`, `assets/src/`, `bin/`, dev configs (`phpcs.xml.dist`, `phpstan.neon.dist`, `.wp-env.json`, `package*.json`, `composer.*`), the unprefixed `vendor/`, and `.git*`.
 5. Zip as `causeway-claude-bridge-<version>.zip` with the folder `causeway-claude-bridge/` at its root.
 6. Update metadata: the update server's `?action=get_metadata&slug=…` URL is the standard WP Update Server API, which builds the metadata itself from the uploaded zip's plugin header and `readme.txt` (requirements, changelog). So the release carries a `readme.txt` and no separate JSON. **Confirm on the first release** that the server behaves this way; if it doesn't, add a metadata step here. Distribution is by **manual upload** to `repo.causewaycreative.co.uk` (confirmed 2026-11-06): CI keeps the zip as a build artifact, and a person uploads it. Release checklist in `RELEASING.md` (M10): bump version, tag, wait for green CI and smoke test, download the artifacts, upload to the update server, then confirm a staging site sees the update.
@@ -125,6 +125,20 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M10 decisions and findings (2026-11-06)
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| Security checklist | Worked through every `docs/09` item; written up in `docs/security-report.md` with the test that covers each one. New `SecurityChecklistTest` fills the gaps: all 21 abilities logged out / Subscriber / Editor, Contributors on publish-only abilities, plain HTTP, XSS in title, excerpt, content, ACF fields, alt text, captions and config strings (emails), no tokens / upload-link tokens / Application Passwords / post bodies in the activity, token or upload-link tables, no user/settings/plugin/permanent-delete abilities, every write route needs `manage_options` | `docs/09` "Security review checklist" |
+| Open security items | WAF/CDN on the live domain; manual setup-pack install on macOS and Windows; backup before go-live | Need the live site and staff machines |
+| Debug mode | `Audit\DebugLog`: ability input and result to the PHP error log with the request reference, secrets and post content redacted, long strings cut; off after 24 hours (expired option cleared on read); switching it on or off is audited | `docs/09` "Debug mode logs request/response bodies with those fields redacted" |
+| MCP end to end | Browser test runs a Publisher's create → upload image → prepare-publish → wrong token refused → publish → reused token refused → public page loads, through the setup pack's own bundled proxy | `docs/11` "MCP end-to-end" |
+| Translations | `languages/causeway-claude-bridge.pot` (815 strings, every placeholder string has a `translators:` comment) generated by `bin/make-pot.php`, a tokenizer-based stand-in for `wp i18n make-pot` (WP-CLI can't run in every build environment). No creation date, so CI can check it's current. Admin script strings come from PHP (`AdminPage::strings()`) | `docs/12` M10 |
+| Performance | Budgets enforced in `PerformanceTest`. Measured on SQLite: read abilities 4 queries each (~4–8 ms), `create-post` 47 queries (~30 ms). Site structure is cached for 5 minutes and cleared on term/ACF changes; the activity table is indexed for the Activity tab filters | `docs/12` M10 "performance" |
+| Compatibility | `docs/compatibility-report-template.md` for the staging check in `docs/11` | `docs/13` M10 |
+| Releasing | `RELEASING.md`: version in three places, setup-pack version rule, tag, CI artifact, manual upload, staging check, rollback | `docs/13` section 1a |
+| Release job | Uses Node 22 explicitly (admin assets and the extension bundle are built in the release) | M9 build step |
 
 ### M9 decisions and findings (2026-11-06)
 

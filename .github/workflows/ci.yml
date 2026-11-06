@@ -27,6 +27,8 @@ jobs:
       - run: composer install --no-interaction --no-progress
       - run: composer install --no-interaction --no-progress --working-dir=tools/phpstan
       - run: vendor/bin/phpcs
+      - name: Translation template is up to date
+        run: php bin/make-pot.php --check
       - run: tools/phpstan/vendor/bin/phpstan analyse --no-progress --memory-limit=1G
 
   unit:
@@ -132,6 +134,10 @@ jobs:
           coverage: none
           extensions: pdo_sqlite, gd
           tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
       - name: Build the release zip
         run: bin/build-release.sh
       - name: Smoke test the zip on a clean site

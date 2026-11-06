@@ -26,3 +26,4 @@ Each person works under their own WordPress login and their own Application Pass
 * Operations: email notifications, public page checks after live changes, daily health check and alerts, daily clean-up.
 * Settings → Claude Publishing: sections with a live "What Claude sees" preview, writing style, images, access and device passwords, notifications, activity log with CSV export, version history, import/export and presets.
 * Setup pack download: Claude Desktop extension (bundled WordPress MCP proxy), Claude skill and a one-page how-to, with the site's values filled in.
+* Hardening: debug mode with redacted logging, security review, translation template.
