@@ -164,11 +164,11 @@ Full release-zip smoke test green; `RELEASING.md` written; `docs/09` security ch
 ## 3. Open questions for the client
 
 From `docs/12`:
-- Besides administrators, who has AI Publisher rights at launch?
+- ~~Besides administrators, who has AI Publisher rights at launch?~~ Mike (the MP) is an AI Publisher at launch, made one in the Access tab if he isn't an administrator (confirmed 2026-11-06). This is a site setup step, not code.
 - ~~Does every staff member have their own Claude Pro account?~~ Yes (confirmed 2026-11-06).
 - ~~Which SEO plugin does the site use?~~ SEOPress on all sites (confirmed 2026-11-06).
 - ~~Confirm preset limits~~ Confirmed 2026-11-06: News 150–1200 words; Visits max 150 words and 1 image. Ship as in the `mp-site.json` preset.
-- Which presets ship in the first release besides the MP site preset?
+- ~~Which presets ship in the first release?~~ Only `mp-site.json` (confirmed 2026-11-06). More presets are phase 2.
 
 Added during planning:
 - ~~Please provide the MP Visits plugin source~~ Received 2026-11-06; findings in `docs/reference/mp-visits-findings.md`.
