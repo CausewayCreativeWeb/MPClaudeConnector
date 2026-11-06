@@ -18,9 +18,9 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Ability meta keys for `readonly` / `destructive` / `idempotent` annotations; MCP resources support (`ccb://publishing-guide`) | `03` | Adapter 0.7.1 | As above |
 | Application Password name/UUID lookup under the adapter's transport | `02` | Adapter + core | Check `rest_get_authenticated_app_password()` works on the adapter's REST route; integration test |
 | Abilities API hook names (expected `wp_abilities_api_categories_init`, `wp_abilities_api_init`) | `01` | WP 6.9 core | Read core source |
-| `visits_location` JSON shape and the postcode service the admin map uses | `05`, reference | `visits-admin-map.js` in MP Visits 1.3 | **Need the plugin source from the client/site.** Blocks the Visits part of M4 |
+| `visits_location` JSON shape and the postcode service the admin map uses | `05`, reference | `visits-admin-map.js` in MP Visits 1.3 | **Resolved** from client-supplied source: `{"lat":<number>,"lng":<number>}`; postcodes.io with the compact postcode. See `docs/reference/mp-visits-findings.md` |
 | Elementor Pro single-template condition meta keys | `04` | Site's Elementor Pro version | Site audit |
-| SEO plugin in use | `05` | Site audit | Open question |
+| SEO plugin in use | `05` | Client | **Resolved:** SEOPress on all Causeway sites. Writes go to `_seopress_titles_title` and `_seopress_titles_desc` (per `docs/05`); still confirm the keys against the installed SEOPress version during the site audit |
 | MCPB `manifest_version` and fields | `10` | `@anthropic-ai/mcpb` | `mcpb init` / `mcpb validate` against the current CLI |
 | Proxy env var names; turning off OAuth discovery | `10` | `@automattic/mcp-wordpress-remote` 0.5.5 | Package README and source |
 | Tailwind v4 `prefix()` import syntax | `08` | Pinned `@tailwindcss/cli` | Compile a test file |
@@ -50,7 +50,7 @@ MySQL-specific behaviour (`dbDelta` index syntax, `VARBINARY` IP column, `LONGTE
 
 ### Fixtures (`tests/fixtures/mu-plugins/`)
 Replicas, from `docs/reference/existing-plugins.md`, of:
-- `visits` CPT (not in REST, `capability_type` post, `map-thumb` size, `[visits_map]` shortcode stub reading `visits_location`)
+- `visits` CPT (not in REST, `capability_type` post, `map-thumb` size, `save_visits_meta()` and `[visits_map]` replicated as described in `docs/reference/mp-visits-findings.md`)
 - `resource` CPT with `resource_category` and `content-type` taxonomies and the local ACF group "Resource Details" (`downloadable_file`, `online_reader_url`, `authors`, same field keys)
 - Seed terms (`news` category, Insights categories and types)
 
@@ -85,9 +85,9 @@ Files: `src/Mcp/ServerRegistrar.php`, `src/Abilities/AbilityRegistrar.php`, `src
 Tests: each read ability × role (none, Contributor, Publisher, admin); MCP end-to-end lists only `ccb/*` tools and the default adapter server is unreachable.
 
 ### M4 — Write abilities
-Files: `src/Content/ContentSanitiser.php`, `src/Content/PostWriter.php`, `src/Content/FieldWriter.php`, `src/Content/Geocoder.php`, `src/Content/SeoWriter.php`, `src/Checks/PostVerifier.php` (database checks; HTTP checks come in M7), `CreatePost`, `UpdatePost`, idempotency and duplicate check.
+Files: `src/Content/ContentSanitiser.php`, `src/Content/PostWriter.php`, `src/Content/FieldWriter.php`, `src/Content/Geocoder.php`, `src/Content/SeoWriter.php` (SEOPress is the first-class path and is tested; Yoast and Rank Math mappings stay for reuse), `src/Checks/PostVerifier.php` (database checks; HTTP checks come in M7), `CreatePost`, `UpdatePost`, idempotency and duplicate check.
 
-Tests: Contributor `status: publish` stored as `pending`; terms never created and unknown terms rejected; defaults applied; ACF written by key on `resource`; `visits_location` stored in the confirmed MP Visits format and written after `wp_insert_post`; no `_elementor_*` meta written; Elementor-built content edits refused; sanitiser unit tests.
+Tests: Contributor `status: publish` stored as `pending`; terms never created and unknown terms rejected; defaults applied; ACF written by key on `resource`; `visits_location` stored as `{"lat":<number>,"lng":<number>}` and written after `wp_insert_post`; published Visit appears in `[visits_map]` output; titles stored as plain text (MP Visits' pop-up doesn't escape them); no `_elementor_*` meta written; Elementor-built content edits refused; sanitiser unit tests.
 
 ### M5 — Media
 Files: `src/Media/ImagePipeline.php`, `src/Media/UploadLinks.php`, `templates/upload-link.php`, `UploadImage`, `GetUploadLink`, PDF handling.
@@ -124,10 +124,10 @@ Tests: `mcpb validate`; every tool name in the skill exists on the `ccb` server;
 From `docs/12`:
 - Besides administrators, who has AI Publisher rights at launch?
 - Does every staff member have their own Claude Pro account?
-- Which SEO plugin does the site use?
+- ~~Which SEO plugin does the site use?~~ SEOPress on all sites (confirmed 2026-11-06).
 - Confirm preset limits (News 150–1200 words; Visits max 150 words and 1 image).
 - Which presets ship in the first release besides the MP site preset?
 
 Added during planning:
-- Please provide the MP Visits plugin source (at least `visits-admin-map.js`) so the `visits_location` format and postcode service can be matched before M4.
+- ~~Please provide the MP Visits plugin source~~ Received 2026-11-06; findings in `docs/reference/mp-visits-findings.md`.
 - Should bundled Composer dependencies (notably the MCP Adapter) be namespace-prefixed (Strauss) to avoid clashes if another plugin on a client site bundles a different adapter version? Recommended, decide before M3.
