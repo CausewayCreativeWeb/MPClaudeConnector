@@ -11,6 +11,7 @@ namespace Causeway\ClaudeBridge\Checks;
 
 use Causeway\ClaudeBridge\Config\ConfigRepository;
 use Causeway\ClaudeBridge\Config\SiteStructure;
+use Causeway\ClaudeBridge\Media\ImagePipeline;
 
 /**
  * Checks run at the start of every Claude session and by the daily health check.
@@ -124,7 +125,7 @@ final class PreFlight {
 			$issues[] = self::issue( 'config_stale', 'warning', __( 'Some settings refer to categories or fields that have been deleted. They are being ignored.', 'causeway-claude-bridge' ), __( 'An administrator can tidy them up in Settings → Claude Publishing.', 'causeway-claude-bridge' ) );
 		}
 
-		if ( function_exists( 'wp_image_editor_supports' ) && ! wp_image_editor_supports( array( 'mime_type' => 'image/webp' ) ) ) {
+		if ( ! ImagePipeline::webp_supported() ) {
 			$issues[] = self::issue( 'image_webp_unsupported', 'warning', __( 'The server can\'t create WebP images, so images will be kept as JPEG or PNG.', 'causeway-claude-bridge' ), __( 'Ask the host to enable WebP in Imagick or GD.', 'causeway-claude-bridge' ) );
 		}
 

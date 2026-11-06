@@ -11,6 +11,7 @@ namespace Causeway\ClaudeBridge;
 
 use Causeway\ClaudeBridge\Config\ConfigRepository;
 use Causeway\ClaudeBridge\Db\Schema;
+use Causeway\ClaudeBridge\Media\UploadLinks;
 use Causeway\ClaudeBridge\Roles\RoleManager;
 use DateTimeImmutable;
 
@@ -72,6 +73,9 @@ final class Activation {
 		RoleManager::sync();
 		( new ConfigRepository() )->ensure_default( $user_id );
 		self::schedule_cron();
+		// The upload-link URL (/ccb-upload/<token>) needs its rewrite rule saved once.
+		UploadLinks::register_rewrite();
+		flush_rewrite_rules( false );
 		update_option( self::OPTION_INSTALLED_VERSION, CCB_VERSION, true );
 	}
 

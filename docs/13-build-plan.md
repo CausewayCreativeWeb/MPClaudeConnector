@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1–M4 done** (skeleton, tooling, release build, smoke test; site discovery, publishing guide, presets; MCP server and read abilities; create and update). Next: M5 |
+| Code | **M1–M5 done** (skeleton, tooling, release build, smoke test; site discovery, publishing guide, presets; MCP server and read abilities; create and update; images, upload links, PDFs). Next: M6 |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -125,6 +125,22 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M5 decisions and findings (2026-11-06)
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| Photo orientation | The image is turned upright from its EXIF orientation **before** metadata is stripped | Otherwise portrait phone photos come out sideways once EXIF is gone. Not in `docs/05` |
+| Editor choice | GD is preferred (re-encoding always drops metadata). Imagick is used only when GD can't, via a subclass that calls `stripImage()` on the main image | WordPress's Imagick editor strips thumbnails only. The Imagick path isn't exercised here (no extension in this container) |
+| Metadata check | After processing, the output is scanned for EXIF, XMP and GPS (JPEG, WebP chunks, PNG chunks); if any remains the upload is refused | `docs/05` step 5 "verify no EXIF/GPS remains", made a hard stop |
+| WebP or original | WebP unless it's bigger than the stripped original (flat graphics often are). New filter `ccb_webp_supported` lets a host switch WebP off | `docs/05` step 5 |
+| Alt text on upload-link images | The page asks for a short image description (required for images) | Verification fails without alt text; `docs/05` doesn't say how links get it |
+| Upload-link page | HTTPS only; `noindex`; `no-store`; `Referrer-Policy: no-referrer` (the token is in the URL); `X-Frame-Options: DENY`; a strict Content Security Policy with per-request nonces for the inline style and script; works without JavaScript | `docs/05`, `docs/09` |
+| Who an upload-link upload acts as | The link's owner, for that request only (attachment author and activity row) | The token is the authorisation (`docs/05`) |
+| URLs | `/ccb-upload/<token>/` with pretty permalinks, `/?ccb_upload=<token>` otherwise; always https | `docs/05` |
+| Admin media functions | `media_handle_sideload()` and friends are loaded explicitly | **Bug caught by the smoke test**: they aren't loaded on REST or front-end requests, so uploads crashed outside the test suite (which loads them) |
+| Content images | Uploaded with `upload-image` (no `set_featured`) and attached to the post; Claude puts the returned URL in the content | `docs/03` |
+| HEIC | Refused with a hint for iPhone users (export as JPEG or set Camera → Formats → Most Compatible) | `docs/05` refuses HEIC |
 
 ### M4 decisions and findings (2026-11-06)
 

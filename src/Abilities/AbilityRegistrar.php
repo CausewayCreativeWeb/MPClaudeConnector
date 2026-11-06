@@ -30,6 +30,8 @@ final class AbilityRegistrar {
 		GetPost::class,
 		CreatePost::class,
 		UpdatePost::class,
+		UploadImage::class,
+		GetUploadLink::class,
 	);
 
 	/**

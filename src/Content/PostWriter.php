@@ -15,6 +15,7 @@ use Causeway\ClaudeBridge\Abilities\Sections;
 use Causeway\ClaudeBridge\Audit\RequestContext;
 use Causeway\ClaudeBridge\Checks\PostVerifier;
 use Causeway\ClaudeBridge\Config\PublishingGuide;
+use Causeway\ClaudeBridge\Media\ImageRules;
 use Causeway\ClaudeBridge\Roles\RoleManager;
 use WP_Error;
 use WP_Post;
@@ -484,35 +485,7 @@ final class PostWriter {
 		if ( ! is_array( $meta ) || empty( $meta['width'] ) || empty( $meta['height'] ) ) {
 			return AbilityError::make( 'ccb_field_invalid', __( 'The featured image\'s size couldn\'t be read.', 'causeway-claude-bridge' ), 400, 'featured_image_id', __( 'Upload it again with upload-image.', 'causeway-claude-bridge' ) );
 		}
-		$width  = (int) $meta['width'];
-		$height = max( 1, (int) $meta['height'] );
-
-		if ( $rules['min_width'] > 0 && $width < $rules['min_width'] ) {
-			return AbilityError::make(
-				'ccb_field_invalid',
-				/* translators: 1: actual width, 2: required width */
-				sprintf( __( 'The featured image is %1$dpx wide; this section needs at least %2$dpx.', 'causeway-claude-bridge' ), $width, $rules['min_width'] ),
-				400,
-				'featured_image_id',
-				__( 'Ask for a larger image.', 'causeway-claude-bridge' )
-			);
-		}
-		if ( 'any' !== $rules['ratio'] ) {
-			[ $rw, $rh ] = array_map( 'intval', explode( ':', $rules['ratio'] ) );
-			$expected    = $rw / $rh;
-			$actual      = $width / $height;
-			if ( abs( $actual - $expected ) / $expected > 0.03 ) {
-				return AbilityError::make(
-					'ccb_field_invalid',
-					/* translators: 1: width, 2: height, 3: required ratio */
-					sprintf( __( 'The featured image is %1$d×%2$d; this section needs a %3$s image.', 'causeway-claude-bridge' ), $width, $height, $rules['ratio'] ),
-					400,
-					'featured_image_id',
-					__( 'Ask for an image with the right shape, or crop it.', 'causeway-claude-bridge' )
-				);
-			}
-		}
-		return null;
+		return ImageRules::check_featured( (int) $meta['width'], (int) $meta['height'], $rules, 'featured_image_id' );
 	}
 
 	/**

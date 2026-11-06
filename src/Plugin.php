@@ -12,6 +12,7 @@ namespace Causeway\ClaudeBridge;
 use Causeway\ClaudeBridge\Abilities\AbilityRegistrar;
 use Causeway\ClaudeBridge\Config\SiteStructure;
 use Causeway\ClaudeBridge\Mcp\ServerRegistrar;
+use Causeway\ClaudeBridge\Media\UploadPage;
 use Causeway\ClaudeBridge\Roles\RoleManager;
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
@@ -56,6 +57,7 @@ final class Plugin {
 		SiteStructure::register_hooks();
 		AbilityRegistrar::register_hooks();
 		ServerRegistrar::register();
+		UploadPage::register_hooks();
 
 		add_action( 'init', array( Activation::class, 'maybe_upgrade' ), 1 );
 		add_action( 'init', array( $this, 'load_textdomain' ) );

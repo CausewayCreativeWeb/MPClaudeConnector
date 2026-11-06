@@ -93,7 +93,7 @@ http_checks() {
 	local tools
 	tools=$(curl -s -X POST "${mcp[@]}" "$url" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
 		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $n=array_column($b["result"]["tools"]??[],"name"); sort($n); echo implode(",",$n);')
-	[ "$tools" = "ccb-check-connection,ccb-create-post,ccb-get-post,ccb-get-publishing-guide,ccb-list-posts,ccb-list-sections,ccb-list-terms,ccb-update-post" ] \
+	[ "$tools" = "ccb-check-connection,ccb-create-post,ccb-get-post,ccb-get-publishing-guide,ccb-get-upload-link,ccb-list-posts,ccb-list-sections,ccb-list-terms,ccb-update-post,ccb-upload-image" ] \
 		|| { echo "FAIL: unexpected tools: $tools" >&2; return 1; }
 	echo "  ok  tools/list has only the ccb tools: $tools"
 
@@ -104,12 +104,49 @@ http_checks() {
 	[ "$check" = "Sarah Jones|Sarah - office laptop|news" ] || { echo "FAIL: check-connection returned '$check'" >&2; return 1; }
 	echo "  ok  check-connection over HTTP: $check"
 
-	local created
+	local created post_id
 	created=$(curl -s -X POST "${mcp[@]}" "$url" \
 		-d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"ccb-create-post","arguments":{"section":"news","title":"Smoke test post","content":"<h1>Hello</h1><p>From the smoke test.</p>","status":"publish","idempotency_key":"smoke-test-0001"}}}' \
-		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo ($d["status"]??"error: ".($b["result"]["content"][0]["text"]??"?"));')
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo ($d["status"]??"error: ".($b["result"]["content"][0]["text"]??"?")), "|", ($d["post_id"]??0);')
+	post_id="${created#*|}"; created="${created%%|*}"
 	[ "$created" = "pending" ] || { echo "FAIL: create-post returned '$created'" >&2; return 1; }
 	echo "  ok  create-post over HTTP: AI Contributor's post saved as pending (publish was asked for)"
+
+	# upload-image through MCP (base64), attached to the post.
+	local uploaded
+	uploaded=$(php -r '$i=imagecreatetruecolor(1000,600); imagefilledrectangle($i,0,0,999,599,imagecolorallocate($i,200,80,40)); ob_start(); imagejpeg($i,null,85); echo json_encode(["jsonrpc"=>"2.0","id"=>7,"method"=>"tools/call","params"=>["name"=>"ccb-upload-image","arguments"=>["filename"=>"photo.jpg","data_base64"=>base64_encode(ob_get_clean()),"alt"=>"Body photo","post_id"=>(int)$argv[1]]]]);' "$post_id" \
+		| curl -s -X POST "${mcp[@]}" "$url" --data-binary @- \
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo isset($d["format"]) ? $d["format"]."|".$d["width"] : "error: ".($b["result"]["content"][0]["text"]??"?");')
+	[ "$uploaded" = "webp|1000" ] || { echo "FAIL: upload-image returned '$uploaded'" >&2; tail -5 "$site/http.log" >&2; return 1; }
+	echo "  ok  upload-image over HTTP: stored as WebP"
+
+	# Upload link: ask for one, open the page, read its nonce, upload a real file as a browser would.
+	local link token page nonce image result featured
+	link=$(curl -s -X POST "${mcp[@]}" "$url" \
+		-d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"ccb-get-upload-link","arguments":{"post_id":'"$post_id"',"purpose":"featured_image"}}}' \
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo $d["url"]??"";')
+	token=$(printf '%s' "$link" | sed -n 's/.*ccb_upload=\([A-Za-z0-9_-]\{43\}\).*/\1/p')
+	[ -n "$token" ] || { echo "FAIL: get-upload-link returned '$link'" >&2; return 1; }
+	page="http://127.0.0.1:$port/?ccb_upload=$token"
+	local page_headers
+	page_headers=$(curl -s -D - -o "$site/upload-page.html" -H 'X-Forwarded-Proto: https' "$page" | tr -d '\r')
+	grep -qi '^x-robots-tag: noindex' <<<"$page_headers" && grep -qi '^cache-control:.*no-store' <<<"$page_headers" && grep -qi '^referrer-policy: no-referrer' <<<"$page_headers" \
+		|| { echo "FAIL: upload page is missing noindex/no-store/no-referrer headers" >&2; return 1; }
+	nonce=$(sed -n 's/.*name="_ccb_nonce" value="\([^"]*\)".*/\1/p' "$site/upload-page.html")
+	grep -q 'Smoke test post' "$site/upload-page.html" && [ -n "$nonce" ] || { echo "FAIL: upload page did not show the form" >&2; return 1; }
+	echo "  ok  Upload page: shows the post, never cached or indexed, no referrer"
+	image="$site/smoke-photo.jpg"
+	php -r '$i=imagecreatetruecolor(1600,900); imagefilledrectangle($i,0,0,1599,899,imagecolorallocate($i,40,120,200)); imagejpeg($i,$argv[1],85);' "$image"
+	result=$(curl -s -H 'X-Forwarded-Proto: https' -F "_ccb_nonce=$nonce" -F "alt=Smoke test photo" -F "file=@$image;type=image/jpeg" "$page")
+	grep -q "Done. Go back to Claude" <<<"$result" || { echo "FAIL: upload through the link failed:" >&2; printf "%s\n" "$result" | sed "s/<[^>]*>//g" | grep -v "^\s*$" | tail -8 >&2; tail -20 "$site/http.log" >&2; return 1; }
+	featured=$(curl -s -X POST "${mcp[@]}" "$url" \
+		-d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"ccb-get-post","arguments":{"post_id":'"$post_id"'}}}' \
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo ($d["featured_image"]["alt"]??"none")."|".pathinfo($d["featured_image"]["url"]??"",PATHINFO_EXTENSION);')
+	[ "$featured" = "Smoke test photo|webp" ] || { echo "FAIL: featured image after upload: '$featured'" >&2; return 1; }
+	echo "  ok  Upload link over HTTP: real multipart upload became the featured image (WebP, alt text set)"
+	result=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Forwarded-Proto: https' "$page")
+	[ "$result" = "410" ] || { echo "FAIL: used link returned $result, expected 410" >&2; return 1; }
+	echo "  ok  The link works once (410 afterwards)"
 
 	status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${headers[@]}" -u "sarah:wrong-password" "$url" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
 	[ "$status" = "401" ] || { echo "FAIL: wrong password returned $status" >&2; return 1; }
