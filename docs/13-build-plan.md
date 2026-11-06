@@ -30,9 +30,9 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 ### PHP
 - `composer.json`
   - require: `wordpress/mcp-adapter` `0.7.1` (exact), `opis/json-schema` (exact), `yahnis-elsts/plugin-update-checker` v5
-  - require-dev: `phpunit/phpunit`, `yoast/phpunit-polyfills`, `wp-phpunit/wp-phpunit`, `brain/monkey`, `wp-coding-standards/wpcs`, `phpstan/phpstan`, `szepeviktor/phpstan-wordpress`, `php-stubs/acf-pro-stubs`
+  - require-dev: `brianhenryie/strauss` (exact), `phpunit/phpunit`, `yoast/phpunit-polyfills`, `wp-phpunit/wp-phpunit`, `brain/monkey`, `wp-coding-standards/wpcs`, `phpstan/phpstan`, `szepeviktor/phpstan-wordpress`, `php-stubs/acf-pro-stubs`
   - PSR-4 `Causeway\ClaudeBridge\` → `src/`
-  - scripts: `test` (unit + integration), `test:unit`, `test:integration`, `lint` (PHPCS + PHPStan)
+  - scripts: `test` (unit + integration), `test:unit`, `test:integration`, `lint` (PHPCS + PHPStan), `prefix-namespaces` (Strauss; runs on `post-install-cmd` and `post-update-cmd`)
 - `phpcs.xml.dist` (WordPress standard, `ccb` prefixes, text domain), `phpstan.neon.dist` (level 6, WP + ACF stubs)
 - Strict types in every new file.
 
@@ -57,20 +57,62 @@ Replicas, from `docs/reference/existing-plugins.md`, of:
 These are test doubles only; the real plugins are never modified (D9).
 
 ### CI (`.github/workflows/ci.yml`)
-PHPCS, PHPStan, PHPUnit unit, PHPUnit integration on `wp-env` (PHP 8.1 and 8.3), Playwright, `npm run build` with a check that `assets/dist` is unchanged, `mcpb validate`.
+PHPCS, PHPStan, PHPUnit unit, PHPUnit integration on `wp-env` (PHP 8.1 and 8.3), Playwright, `npm run build` with a check that `assets/dist` is unchanged, `mcpb validate`, and the release-zip smoke test below.
+
+## 1a. Packaging and distribution (standalone plugin)
+
+The Bridge must install and run as one self-contained plugin: upload the zip, activate, configure. Nothing else to install on the server, and no Composer, Node or build step on the host.
+
+### Runtime requirements
+| Requirement | Kind |
+| --- | --- |
+| WordPress ≥ 6.9 (Abilities API in core), PHP ≥ 8.1 | Hard. Activation refused with a clear message otherwise |
+| Imagick, or GD with WebP | Soft. Pre-flight warning; pipeline keeps JPEG/PNG |
+| ACF | Only needed when a section has ACF `field_rules`. Pre-flight error only in that case |
+| Elementor / Elementor Pro, SEOPress, MP Visits, Causeway Insights | Optional. Detected live; never required for the plugin to load |
+
+Every integration with another plugin is guarded (`function_exists` / `class_exists` / `is_plugin_active` checks at call time), so deactivating ACF, Elementor or SEOPress never causes a fatal error.
+
+### Bundled dependencies, prefixed with Strauss (required)
+Another plugin on a client site may load its own copy of the MCP Adapter, Opis JSON Schema or plugin-update-checker, including the standalone MCP Adapter plugin. Two copies of the same classes cause fatal errors or silently use the wrong version. So:
+
+- All runtime Composer dependencies are copied by Strauss into `vendor-prefixed/` under the namespace `Causeway\ClaudeBridge\Vendor\` (classmap prefix `CCB_Vendor_`, constant prefix `CCB_VENDOR_`). The plugin only loads `vendor-prefixed/autoload.php` and its own PSR-4 autoloader, and never the unprefixed `vendor/autoload.php` at runtime.
+- `vendor-prefixed/` is built during release, not committed.
+- **TO CONFIRM in M3:** prefixing renames classes, not the adapter's WordPress hook names, REST route namespace or default-server ID. Read the pinned adapter source for global hooks, options and routes it registers, and check that two copies coexisting (ours prefixed, plus the standalone adapter plugin) don't double-register routes or expose the default server through our copy. If they clash, override the hook prefix through the adapter's configuration if it offers one, or patch the prefixed copy at build time with a documented, version-pinned patch.
+- If `vendor-prefixed/autoload.php` is missing (e.g. a git checkout without a build), show an admin notice and don't boot, instead of a fatal error.
+
+### Release build (`bin/build-release.sh`, run in CI on tags)
+1. `composer install --no-dev --optimize-autoloader`, which also runs Strauss.
+2. `npm ci && npm run build` (admin CSS and JS into `assets/dist/`).
+3. `npm ci --omit=dev` in `setup-pack/extension/server/` so the pinned `@automattic/mcp-wordpress-remote` is bundled for the Claude Desktop extension (`docs/10`).
+4. Copy into `build/causeway-claude-bridge/` using `.distignore`. Excluded: `tests/`, `docs/`, root `node_modules/`, `assets/src/`, `bin/`, dev configs (`phpcs.xml.dist`, `phpstan.neon.dist`, `.wp-env.json`, `package*.json`, `composer.*`), the unprefixed `vendor/`, and `.git*`.
+5. Zip as `causeway-claude-bridge-<version>.zip` with the folder `causeway-claude-bridge/` at its root.
+6. Generate the `plugin-update-checker` metadata JSON (version, `requires` 6.9, `requires_php` 8.1, download URL, changelog) for the self-hosted update server. Uploading it to `repo.causewaycreative.co.uk` is a manual release step until the client confirms how that server is fed.
+
+The version number lives in one place (plugin header) and is checked against the `CCB_VERSION` constant, setup pack version and update metadata in CI.
+
+### Release-zip smoke test (CI)
+On a clean WordPress with **no other plugins**:
+- Install the built zip with WP-CLI and activate it, on PHP 8.1 and 8.3. No PHP warnings or notices from the Bridge.
+- Tables, roles and default config exist. An unauthenticated request to the `ccb` MCP endpoint returns 401.
+- With an Application Password, connect via the bundled proxy: only `ccb/*` tools are listed; `check-connection` returns `ok: false` with a "no section enabled" error (expected on an unconfigured site), not a crash.
+- Repeat with the **standalone MCP Adapter plugin** also active: both still load, and only `ccb/*` tools are on our server.
+- Repeat with ACF, Elementor and SEOPress active, then deactivated: no fatal errors.
+- On WordPress 6.8: activation is refused with the version message.
+- Deactivate, then uninstall with "Delete all data" on: tables, options and roles removed; posts untouched.
 
 ## 2. Milestones
 
 Same order as `docs/12`. Each ends with passing tests and a commit.
 
 ### M1 — Skeleton
-Files: `causeway-claude-bridge.php`, `uninstall.php`, `src/Plugin.php`, `src/Activation.php`, `src/Roles/RoleManager.php`, `src/Config/ConfigRepository.php`, `src/Config/SchemaValidator.php`, `schema/config.schema.json`, `src/Db/Schema.php` (all five tables via `dbDelta`, `ccb_db_version`).
+Files: `causeway-claude-bridge.php` (with the missing-build guard), `uninstall.php`, Strauss config in `composer.json`, `.distignore`, `bin/build-release.sh`, `src/Plugin.php`, `src/Activation.php`, `src/Roles/RoleManager.php`, `src/Config/ConfigRepository.php`, `src/Config/SchemaValidator.php`, `schema/config.schema.json`, `src/Db/Schema.php` (all five tables via `dbDelta`, `ccb_db_version`).
 - Version checks (WP ≥ 6.9, PHP ≥ 8.1) with an admin notice and clean stop.
 - Roles `ccb_contributor`, `ccb_publisher` built idempotently; admins get caps on activation and through `user_has_cap`.
 - Default empty config stored as version 1; version rows capped at 20.
 - Cron scheduled on activation, cleared on deactivation. Uninstall honours "Delete all data" and reassigns roles first.
 
-Tests: schema valid and invalid cases for every rule in `docs/04`; activation creates tables, roles, caps, config, cron; uninstall reassigns `ccb_contributor` → Contributor and `ccb_publisher` → Editor.
+Tests: release zip builds, and the smoke test activates it on a clean site; schema valid and invalid cases for every rule in `docs/04`; activation creates tables, roles, caps, config, cron; uninstall reassigns `ccb_contributor` → Contributor and `ccb_publisher` → Editor.
 
 ### M2 — Site discovery and publishing guide
 Files: `src/Config/SiteStructure.php` (+ cache clearing on term and ACF changes), live-site checks in `SchemaValidator`, `src/Config/PublishingGuide.php`, `src/Config/Presets.php`, `presets/mp-site.json`.
@@ -82,7 +124,7 @@ Files: `src/Mcp/ServerRegistrar.php`, `src/Abilities/AbilityRegistrar.php`, `src
 
 `AbstractAbility` implements the eight enforcement steps from `docs/02` once (auth, HTTPS, rate limit, schema, section, config rules, token hook, audit row), and every ability extends it. Errors use the `WP_Error` shape and codes from `docs/03`; unexpected exceptions become `ccb_internal` with a 12-character reference.
 
-Tests: each read ability × role (none, Contributor, Publisher, admin); MCP end-to-end lists only `ccb/*` tools and the default adapter server is unreachable.
+Tests: each read ability × role (none, Contributor, Publisher, admin); MCP end-to-end lists only `ccb/*` tools and the default adapter server is unreachable, both alone and alongside the standalone MCP Adapter plugin (resolves the Strauss TO CONFIRM in section 1a).
 
 ### M4 — Write abilities
 Files: `src/Content/ContentSanitiser.php`, `src/Content/PostWriter.php`, `src/Content/FieldWriter.php`, `src/Content/Geocoder.php`, `src/Content/SeoWriter.php` (SEOPress is the first-class path and is tested; Yoast and Rank Math mappings stay for reuse), `src/Checks/PostVerifier.php` (database checks; HTTP checks come in M7), `CreatePost`, `UpdatePost`, idempotency and duplicate check.
@@ -117,7 +159,7 @@ Files: `setup-pack/extension/` (`manifest.json`, `server/index.js` starting the 
 Tests: `mcpb validate`; every tool name in the skill exists on the `ccb` server; built pack contains no credentials. Manual install on macOS and Windows.
 
 ### M10 — Hardening
-`docs/09` security checklist worked through and written up; translations (`.pot`); compatibility report template for `docs/11`; performance pass.
+Full release-zip smoke test green; `docs/09` security checklist worked through and written up; translations (`.pot`); compatibility report template for `docs/11`; performance pass.
 
 ## 3. Open questions for the client
 
@@ -130,4 +172,5 @@ From `docs/12`:
 
 Added during planning:
 - ~~Please provide the MP Visits plugin source~~ Received 2026-11-06; findings in `docs/reference/mp-visits-findings.md`.
-- Should bundled Composer dependencies (notably the MCP Adapter) be namespace-prefixed (Strauss) to avoid clashes if another plugin on a client site bundles a different adapter version? Recommended, decide before M3.
+- ~~Should bundled Composer dependencies be namespace-prefixed with Strauss?~~ Yes: required so the plugin runs standalone (decided 2026-11-06; see section 1a).
+- How does the self-hosted update server (`repo.causewaycreative.co.uk`) receive new releases: manual upload or an API CI can call?
