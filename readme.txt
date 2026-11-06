@@ -1,0 +1,29 @@
+=== Claude Publishing Bridge ===
+Contributors: causewaycreative
+Tags: claude, mcp, publishing
+Requires at least: 6.9
+Tested up to: 7.1
+Requires PHP: 8.1
+Stable tag: 0.1.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Lets named staff draft, edit, publish and remove website posts from Claude, safely.
+
+== Description ==
+
+Each person works under their own WordPress login and their own Application Password, so every action is attributable. Posts from AI Contributors land as Pending Review. Only AI Publishers can publish or schedule, and every change to the live site needs an explicit confirmation from the person making it. Deleting moves a post to the Bin.
+
+== Changelog ==
+
+= 0.1.0 =
+* Plugin skeleton: requirement checks, activation, AI Contributor and AI Publisher roles, database tables, versioned configuration with validation, uninstall.
+* Site discovery, configuration checks against the live site, publishing guide, MP site preset.
+* Dedicated MCP server with the read abilities: check connection, publishing guide, sections, terms, posts.
+* Create and update posts: content sanitising, terms, ACF and extra fields, Visits postcode lookup, SEO fields, duplicate and retry protection, post verification.
+* Images and files: image pipeline (upright, resized, metadata removed, WebP), one-time upload links, PDFs for file fields.
+* Live changes with confirmation: publish, schedule, update live, unpublish and move to the Bin, each prepared with a summary and a single-use token; restore from the Bin as a draft.
+* Operations: email notifications, public page checks after live changes, daily health check and alerts, daily clean-up.
+* Settings → Claude Publishing: sections with a live "What Claude sees" preview, writing style, images, access and device passwords, notifications, activity log with CSV export, version history, import/export and presets.
+* Setup pack download: Claude Desktop extension (bundled WordPress MCP proxy), Claude skill and a one-page how-to, with the site's values filled in.
+* Hardening: debug mode with redacted logging, security review, translation template.

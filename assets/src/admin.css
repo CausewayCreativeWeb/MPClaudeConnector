@@ -1,0 +1,416 @@
+/*
+ * Claude Publishing admin screen (docs/08 "Front-end build").
+ *
+ * No global Preflight: only Tailwind's theme and utilities, every class prefixed `ccb:`, all markup
+ * inside #ccb-app, loaded only on this screen.
+ *
+ * Specificity plan (WP Admin's CSS is unlayered, and unlayered rules beat any layered rule):
+ * - Utilities are emitted unlayered, so one prefixed class (0,1,0) beats WP's element selectors (0,0,1).
+ * - Element resets use :where(#ccb-app) (0,0,1), so they beat WP by source order and lose to utilities.
+ * - Form controls and buttons use #ccb-app .ccb-* so they beat WP's input[type=…] and .wp-core-ui rules;
+ *   those components never set margins, so margin utilities still apply to them.
+ */
+@layer theme, base;
+@import "tailwindcss/theme.css" layer(theme) prefix(ccb);
+@import "tailwindcss/utilities.css" prefix(ccb);
+
+@source "../../templates/admin";
+@source "./js";
+
+@theme {
+	--color-accent: color-mix(in srgb, var(--wp-admin-theme-color, #2271b1) 78%, #000);
+	--color-ink: #1d2327;
+	--color-muted: #646970;
+	--color-line: #dcdcde;
+	--color-surface: #ffffff;
+	--color-canvas: #f0f0f1;
+	--color-good: #00a32a;
+	--color-warn: #dba617;
+	--color-bad: #d63638;
+	--radius-card: 8px;
+	--radius-control: 6px;
+	--shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.06);
+	--text-help: 12px;
+	--text-label: 13px;
+	--text-body: 14px;
+	--text-card: 16px;
+	--text-tab: 20px;
+	--text-page: 24px;
+}
+
+@layer base {
+	#ccb-app,
+	#ccb-app *,
+	#ccb-app *::before,
+	#ccb-app *::after {
+		box-sizing: border-box;
+	}
+	#ccb-app {
+		color: var(--ccb-color-ink, #1d2327);
+		font-size: 14px;
+		line-height: 1.5;
+	}
+	#ccb-app input,
+	#ccb-app select,
+	#ccb-app textarea {
+		box-shadow: none;
+	}
+	#ccb-app [x-cloak] {
+		display: none !important;
+	}
+}
+
+/* ---- Components (unlayered, scoped) ---- */
+
+#ccb-app {
+	/* The scheme's accent darkened so text, borders and white-on-accent pass 4.5:1 with every WP Admin scheme. */
+	--ccb-accent: color-mix(in srgb, var(--wp-admin-theme-color, #2271b1) 78%, #000);
+	--ccb-ink: #1d2327;
+	--ccb-muted: #646970;
+	--ccb-line: #dcdcde;
+	--ccb-canvas: #f0f0f1;
+	--ccb-good: #00a32a;
+	--ccb-warn-text: #8a6100;
+	--ccb-bad: #d63638;
+	margin: 0 20px 0 0;
+	padding-bottom: 96px;
+}
+
+/* Element resets: beat WP Admin's element rules by source order, lose to utilities. */
+:where(#ccb-app) :is(h1, h2, h3, h4, p, ul, ol, li, dl, dd, fieldset, legend) {
+	margin: 0;
+	padding: 0;
+}
+:where(#ccb-app) :is(h1, h2, h3, h4) {
+	color: var(--ccb-ink);
+	line-height: 1.3;
+	font-weight: 600;
+}
+:where(#ccb-app) h1 { font-size: 24px; }
+:where(#ccb-app) h2 { font-size: 20px; }
+:where(#ccb-app) h3 { font-size: 16px; }
+:where(#ccb-app) h4 { font-size: 14px; }
+:where(#ccb-app) p { font-size: 14px; }
+
+#ccb-app h1.ccb-page-title {
+	margin: 0;
+	padding: 0;
+	font-size: 24px;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+#ccb-app .ccb-card {
+	background: #fff;
+	border: 1px solid var(--ccb-line);
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.06);
+	padding: 24px;
+}
+
+#ccb-app .ccb-label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ccb-ink);
+}
+#ccb-app .ccb-help {
+	font-size: 12px;
+	color: var(--ccb-muted);
+}
+#ccb-app .ccb-error-text {
+	font-size: 12px;
+	color: #b32d2e;
+	font-weight: 600;
+}
+:where(#ccb-app) .ccb-label { margin-bottom: 4px; }
+:where(#ccb-app) :is(.ccb-help, .ccb-error-text) { margin-top: 4px; }
+
+#ccb-app .ccb-input,
+#ccb-app .ccb-select,
+#ccb-app .ccb-textarea {
+	width: 100%;
+	max-width: 100%;
+	min-height: 36px;
+	padding: 6px 10px;
+	font-size: 14px;
+	line-height: 1.4;
+	color: var(--ccb-ink);
+	background: #fff;
+	border: 1px solid #8c8f94;
+	border-radius: 6px;
+	box-shadow: none;
+	margin: 0;
+}
+#ccb-app .ccb-select { padding-right: 28px; }
+#ccb-app .ccb-textarea { min-height: 96px; resize: vertical; font-family: inherit; }
+#ccb-app .ccb-input[aria-invalid="true"],
+#ccb-app .ccb-select[aria-invalid="true"],
+#ccb-app .ccb-textarea[aria-invalid="true"] {
+	border-color: var(--ccb-bad);
+}
+
+#ccb-app :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: 2px solid var(--ccb-accent);
+	outline-offset: 2px;
+	box-shadow: none;
+}
+
+#ccb-app .ccb-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: 36px;
+	padding: 6px 14px;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.2;
+	border-radius: 6px;
+	border: 1px solid var(--ccb-accent);
+	background: #fff;
+	color: var(--ccb-accent);
+	cursor: pointer;
+	text-decoration: none;
+	white-space: nowrap;
+}
+#ccb-app .ccb-btn:hover { background: color-mix(in srgb, var(--ccb-accent) 8%, #fff); }
+#ccb-app .ccb-btn:disabled,
+#ccb-app .ccb-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+#ccb-app .ccb-btn-primary { background: var(--ccb-accent); color: #fff; }
+#ccb-app .ccb-btn-primary:hover { background: color-mix(in srgb, var(--ccb-accent) 85%, #000); }
+#ccb-app .ccb-btn-danger { border-color: #b32d2e; color: #b32d2e; }
+#ccb-app .ccb-btn-danger:hover { background: #fcf0f1; }
+#ccb-app .ccb-btn-ghost { border-color: transparent; background: transparent; }
+#ccb-app .ccb-btn-small { min-height: 28px; padding: 2px 10px; font-size: 13px; }
+
+#ccb-app .ccb-link {
+	color: var(--ccb-accent);
+	background: none;
+	border: 0;
+	padding: 0;
+	font-size: inherit;
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+/* Toggle switch: a real checkbox with role="switch". */
+#ccb-app .ccb-toggle {
+	appearance: none;
+	-webkit-appearance: none;
+	position: relative;
+	width: 40px;
+	height: 22px;
+	min-width: 40px;
+	margin: 0;
+	border-radius: 999px;
+	border: 1px solid #8c8f94;
+	background: #fff;
+	cursor: pointer;
+	transition: background-color 0.15s;
+}
+#ccb-app .ccb-toggle::before {
+	content: "";
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 14px;
+	height: 14px;
+	margin: 0;
+	border-radius: 50%;
+	background: #50575e;
+	transition: transform 0.15s;
+}
+#ccb-app .ccb-toggle:checked { background: var(--ccb-accent); border-color: var(--ccb-accent); }
+#ccb-app .ccb-toggle:checked::before { background: #fff; transform: translateX(18px); }
+#ccb-app .ccb-toggle:disabled { opacity: 0.6; cursor: not-allowed; }
+
+#ccb-app .ccb-check {
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	border-radius: 4px;
+}
+
+#ccb-app .ccb-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 20px;
+	border: 1px solid currentColor;
+	background: #fff;
+	white-space: nowrap;
+}
+#ccb-app .ccb-pill::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentColor;
+}
+#ccb-app .ccb-pill-good { color: #007a20; }
+#ccb-app .ccb-pill-warning { color: var(--ccb-warn-text); }
+#ccb-app .ccb-pill-problem { color: #b32d2e; }
+#ccb-app .ccb-pill-neutral { color: var(--ccb-muted); }
+
+#ccb-app .ccb-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 4px 2px 10px;
+	border-radius: 999px;
+	font-size: 13px;
+	background: color-mix(in srgb, var(--ccb-accent) 10%, #fff);
+	color: var(--ccb-ink);
+}
+#ccb-app .ccb-chip button {
+	border: 0;
+	background: transparent;
+	color: var(--ccb-ink);
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1;
+}
+
+/* Left nav and its horizontal form under 960px. */
+#ccb-app .ccb-nav a {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 12px;
+	border-radius: 6px;
+	color: var(--ccb-ink);
+	text-decoration: none;
+	font-size: 14px;
+	white-space: nowrap;
+}
+#ccb-app .ccb-nav a:hover { background: #fff; }
+#ccb-app .ccb-nav a[aria-selected="true"] {
+	background: color-mix(in srgb, var(--ccb-accent) 10%, #fff);
+	color: var(--ccb-ink);
+	font-weight: 600;
+	box-shadow: inset 3px 0 0 var(--ccb-accent);
+}
+#ccb-app .ccb-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--ccb-accent);
+	flex: none;
+}
+#ccb-app .ccb-dot-error { background: var(--ccb-bad); }
+
+#ccb-app .ccb-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+#ccb-app .ccb-table th,
+#ccb-app .ccb-table td {
+	text-align: left;
+	padding: 8px 10px;
+	border-bottom: 1px solid var(--ccb-line);
+	vertical-align: top;
+}
+#ccb-app .ccb-table-wrap { overflow-x: auto; max-width: 100%; }
+#ccb-app .ccb-table time { white-space: nowrap; }
+#ccb-app .ccb-table th { font-weight: 600; color: var(--ccb-muted); font-size: 12px; }
+
+#ccb-app .ccb-savebar {
+	position: sticky;
+	bottom: 0;
+	z-index: 20;
+	background: #fff;
+	border: 1px solid var(--ccb-line);
+	border-radius: 8px;
+	box-shadow: 0 -2px 8px rgb(0 0 0 / 0.08);
+	padding: 12px 16px;
+}
+
+#ccb-app .ccb-dialog {
+	border: 0;
+	border-radius: 8px;
+	padding: 24px;
+	max-width: min(720px, calc(100vw - 32px));
+	width: 100%;
+	box-shadow: 0 8px 32px rgb(0 0 0 / 0.2);
+	color: var(--ccb-ink);
+}
+#ccb-app .ccb-dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+
+#ccb-app .ccb-toast {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 100000;
+	background: #1d2327;
+	color: #fff;
+	padding: 12px 16px;
+	border-radius: 6px;
+	font-size: 14px;
+	box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+	max-width: calc(100vw - 48px);
+}
+
+#ccb-app .ccb-preview {
+	background: var(--ccb-canvas);
+	border: 1px solid var(--ccb-line);
+	border-radius: 8px;
+	padding: 16px;
+	font-size: 13px;
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: Menlo, Consolas, monospace;
+	max-height: 70vh;
+	overflow: auto;
+}
+
+#ccb-app .ccb-diff-before { background: #fcf0f1; }
+#ccb-app .ccb-diff-after { background: #edfaef; }
+#ccb-app code { font-size: 12px; background: var(--ccb-canvas); padding: 1px 4px; border-radius: 4px; }
+
+#ccb-app .ccb-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Layout (docs/08 "Responsive"). */
+#ccb-app .ccb-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; align-items: start; }
+#ccb-app .ccb-main { max-width: 1200px; min-width: 0; }
+#ccb-app .ccb-sections { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+#ccb-app .ccb-sections .ccb-preview-panel { position: sticky; top: 48px; }
+
+@media (max-width: 1279px) {
+	#ccb-app .ccb-sections { grid-template-columns: minmax(0, 1fr); }
+	#ccb-app .ccb-sections .ccb-preview-panel { position: static; }
+}
+@media (max-width: 959px) {
+	#ccb-app .ccb-layout { grid-template-columns: minmax(0, 1fr); }
+	#ccb-app .ccb-nav { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
+	#ccb-app .ccb-nav a[aria-selected="true"] { box-shadow: inset 0 -3px 0 var(--ccb-accent); }
+}
+@media (max-width: 781px) {
+	#ccb-app { margin-right: 10px; }
+	#ccb-app .ccb-card { padding: 16px; }
+	#ccb-app .ccb-savebar { position: fixed; left: 0; right: 0; bottom: 0; border-radius: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#ccb-app *,
+	#ccb-app *::before { transition: none !important; animation: none !important; }
+}

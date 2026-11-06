@@ -1,0 +1,41 @@
+{
+  "label": "MP site",
+  "description": "News, Insights and Visits sections for an MP's website using the MP Visits and Causeway Insights plugins.",
+  "config": {
+    "sections": {
+      "news": {
+        "enabled": true,
+        "label": "News",
+        "post_type": "post",
+        "default_terms": { "category": ["slug:news"] },
+        "required_taxonomies": ["category"],
+        "featured_image": { "required": true, "ratio": "16:9", "min_width": 1200 },
+        "limits": { "min_words": 150, "max_words": 1200, "excerpt_max_chars": 160, "max_images": 5 }
+      },
+      "insights": {
+        "enabled": true,
+        "label": "Insights",
+        "post_type": "resource",
+        "required_taxonomies": ["resource_category", "content-type"],
+        "featured_image": { "required": true, "ratio": "16:9", "min_width": 1200 },
+        "field_rules": { "authors": "required", "downloadable_file": "optional", "online_reader_url": "only_if_given" }
+      },
+      "visits": {
+        "enabled": true,
+        "label": "Visits",
+        "post_type": "visits",
+        "featured_image": { "required": true, "ratio": "any", "min_width": 800 },
+        "limits": { "max_words": 150, "max_images": 1 },
+        "extra_fields": {
+          "visits_location": {
+            "label": "Location",
+            "type": "uk_postcode_to_latlng",
+            "required": true,
+            "instructions": "Ask for the UK postcode of the place visited."
+          }
+        }
+      }
+    },
+    "writing": { "language": "en-GB", "headings": ["h2", "h3"] }
+  }
+}

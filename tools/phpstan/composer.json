@@ -1,0 +1,18 @@
+{
+    "name": "causeway/causeway-claude-bridge-phpstan",
+    "description": "PHPStan, kept apart from the plugin's own dependencies.",
+    "type": "project",
+    "require": {
+        "phpstan/phpstan": "2.3.1",
+        "szepeviktor/phpstan-wordpress": "2.0.4",
+        "php-stubs/acf-pro-stubs": "6.8.2"
+    },
+    "config": {
+        "platform": {
+            "php": "8.1.0"
+        },
+        "allow-plugins": {
+            "phpstan/extension-installer": false
+        }
+    }
+}
