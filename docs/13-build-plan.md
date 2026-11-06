@@ -87,7 +87,7 @@ Another plugin on a client site may load its own copy of the MCP Adapter, Opis J
 3. `npm ci --omit=dev` in `setup-pack/extension/server/` so the pinned `@automattic/mcp-wordpress-remote` is bundled for the Claude Desktop extension (`docs/10`).
 4. Copy into `build/causeway-claude-bridge/` using `.distignore`. Excluded: `tests/`, `docs/`, root `node_modules/`, `assets/src/`, `bin/`, dev configs (`phpcs.xml.dist`, `phpstan.neon.dist`, `.wp-env.json`, `package*.json`, `composer.*`), the unprefixed `vendor/`, and `.git*`.
 5. Zip as `causeway-claude-bridge-<version>.zip` with the folder `causeway-claude-bridge/` at its root.
-6. Generate the `plugin-update-checker` metadata JSON (version, `requires` 6.9, `requires_php` 8.1, download URL, changelog) for the self-hosted update server. Uploading it to `repo.causewaycreative.co.uk` is a manual release step until the client confirms how that server is fed.
+6. Generate the `plugin-update-checker` metadata JSON (version, `requires` 6.9, `requires_php` 8.1, download URL, changelog) for the self-hosted update server. Distribution is by **manual upload** to `repo.causewaycreative.co.uk` (confirmed 2026-11-06): CI attaches the zip and metadata JSON to the tagged release as build artifacts, and a person uploads both. Release checklist in `RELEASING.md` (M10): bump version, tag, wait for green CI and smoke test, download the artifacts, upload to the update server, then confirm a staging site sees the update.
 
 The version number lives in one place (plugin header) and is checked against the `CCB_VERSION` constant, setup pack version and update metadata in CI.
 
@@ -159,7 +159,7 @@ Files: `setup-pack/extension/` (`manifest.json`, `server/index.js` starting the 
 Tests: `mcpb validate`; every tool name in the skill exists on the `ccb` server; built pack contains no credentials. Manual install on macOS and Windows.
 
 ### M10 — Hardening
-Full release-zip smoke test green; `docs/09` security checklist worked through and written up; translations (`.pot`); compatibility report template for `docs/11`; performance pass.
+Full release-zip smoke test green; `RELEASING.md` written; `docs/09` security checklist worked through and written up; translations (`.pot`); compatibility report template for `docs/11`; performance pass.
 
 ## 3. Open questions for the client
 
@@ -173,4 +173,4 @@ From `docs/12`:
 Added during planning:
 - ~~Please provide the MP Visits plugin source~~ Received 2026-11-06; findings in `docs/reference/mp-visits-findings.md`.
 - ~~Should bundled Composer dependencies be namespace-prefixed with Strauss?~~ Yes: required so the plugin runs standalone (decided 2026-11-06; see section 1a).
-- How does the self-hosted update server (`repo.causewaycreative.co.uk`) receive new releases: manual upload or an API CI can call?
+- ~~How does the update server receive new releases?~~ Manual upload to `repo.causewaycreative.co.uk` (confirmed 2026-11-06; see section 1a).
