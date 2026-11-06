@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Causeway\ClaudeBridge;
 
 use Causeway\ClaudeBridge\Abilities\AbilityRegistrar;
+use Causeway\ClaudeBridge\Admin\AdminPage;
+use Causeway\ClaudeBridge\Admin\ProfileFields;
+use Causeway\ClaudeBridge\Admin\RestController;
 use Causeway\ClaudeBridge\Checks\HealthCheck;
 use Causeway\ClaudeBridge\Checks\Pruner;
 use Causeway\ClaudeBridge\Notify\Notifications;
@@ -64,6 +67,9 @@ final class Plugin {
 		Notifications::register_hooks();
 		HealthCheck::register_hooks();
 		Pruner::register_hooks();
+		RestController::register_hooks();
+		AdminPage::register_hooks();
+		ProfileFields::register_hooks();
 
 		add_action( 'init', array( Activation::class, 'maybe_upgrade' ), 1 );
 		add_action( 'init', array( $this, 'load_textdomain' ) );

@@ -32,3 +32,4 @@ setup-pack/extension/server/package-lock.json
 vendor-prefixed/wordpress/mcp-adapter/bin/*
 vendor-prefixed/wordpress/php-mcp-schema/generator/*
 vendor-prefixed/wordpress/php-mcp-schema/docs/*
+playwright.config.js

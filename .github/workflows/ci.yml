@@ -90,6 +90,32 @@ jobs:
           CCB_TEST_WITH_STANDALONE_ADAPTER: ${{ matrix.standalone_adapter || '' }}
         run: composer test:integration
 
+  admin-ui:
+    name: Admin UI (build, budgets, browser tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: pdo_sqlite, gd
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: composer install --no-interaction --no-progress
+      - run: npm ci
+      - name: Committed build output is up to date
+        run: |
+          npm run build
+          git diff --exit-code -- assets/dist
+      - run: bin/check-asset-sizes.sh
+      - run: bin/install-wp-tests.sh 7.1.4
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --trace off
+
   release:
     name: Release zip and smoke test (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest

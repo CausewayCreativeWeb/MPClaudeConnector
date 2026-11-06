@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1–M7 done**: all 21 abilities in `docs/03`, live changes with confirmation tokens, emails, daily health check, live-URL checks and clean-up. Next: M8 (settings screen) |
+| Code | **M1–M8 done**: all 21 abilities in `docs/03`, live changes with confirmation tokens, emails, health checks, and the Settings → Claude Publishing screen. Next: M9 (setup pack) |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -125,6 +125,25 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M8 decisions and findings (2026-11-06)
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| REST | `ccb/v1` as in `docs/08`, plus `GET /config/defaults` (reset), `GET/POST /settings` (debug mode, delete data on uninstall). Every route has a permission callback; cookie requests need the `wp_rest` nonce | `docs/08` table; the extra routes back controls `docs/08` lists under Advanced |
+| Saves | Full config + `base_version`; warnings need `accept_warnings`; a stale `base_version` returns 409 with the live config and a diff (Reload or Overwrite). Saves, restores, imports and presets each write an audit row (`config_save`, `config_restore`, `config_import`, `preset_apply`) | `docs/08` "Save flow", `docs/06` actions |
+| Missing terms on save | Still an **error** (can't save), as `docs/04` says. The Sections card shows "Out of date" with a Remove action for terms and fields that have gone. `docs/08`'s "a default term deleted in WP" example of a warning is read as the stored-config case | `docs/04` is the specific rule; M2 decision |
+| Import | `POST /config/import` only validates and diffs (≤ 256 KB); applying is a normal save with `source: import`. Bookkeeping keys (`version`, `saved_by`…) come from the live config | Nothing changes before the admin has seen the diff |
+| Access | Picker offers AI Contributors only; Publisher ↔ Contributor switches only between the two Bridge roles (never demotes an Editor or admin). Revoking uses core `WP_Application_Passwords`; both are audited (`role_change`, `app_password_revoke`) | `docs/02` "Roles"; non-negotiable 5 spirit (no user management beyond this) |
+| Profile toggle | "Publisher" checkbox on AI Contributor/Publisher profiles, admins only; applied on `profile_update` after WordPress saves the form, and only when the box was changed, so the Role field can't undo it | `docs/01` hooks, `docs/02` |
+| Test email | Sent to the admin who clicks it, not to every recipient; marks the "Notifications" setup step done (option `ccb_onboarding`) | Avoids emailing all Publishers from a settings test |
+| Debug mode | Stored as `ccb_debug_until` (24 h). The logging itself lands in M10 (hardening) | `docs/06` option; `docs/09` debug rules |
+| Tailwind | v4.3.5, `prefix(ccb)`, no Preflight. Utilities are emitted **unlayered**: WP Admin's CSS is unlayered, and unlayered rules beat every layered rule whatever the specificity, so layered utilities lost to WP's `ol`, `p` and `h1` rules. Element resets use `:where(#ccb-app)` so utilities still win; form controls use `#ccb-app .ccb-*` | `docs/08` allowed scoped component classes; nothing is `!important` |
+| Accent colour | `color-mix(var(--wp-admin-theme-color) 78%, black)`: several schemes' accents (e.g. `#007cba`, `#cf4339`) are under 4.5:1 as text or under white text | `docs/08` contrast rule; tested on all 9 schemes |
+| Alpine | **3.15.12**, not 3.17.x: 3.17 alone is 46 KB minified, which with the app breaks the 60 KB budget. JS is 59.8 KB (KB = 1024 bytes) and has little headroom; `bin/check-asset-sizes.sh` enforces both budgets in CI | `docs/08` budgets |
+| Alpine gotcha | An expression that evaluates to a function is called (`x-show="dialog.onConfirm"` ran the overwrite). Use `!!` when testing for a function | Found by the conflict test |
+| Browser tests | `bin/e2e-server.sh` builds a SQLite site (fixtures, ACF, MP preset, test users) and serves it with `php -S`; Playwright 1.63.0 + axe 4.14: axe (WCAG 2.2 AA) on every tab, keyboard tabs, save/conflict/error-link/restore flows, roles and revoke, Publisher/Contributor visibility, assets only on this screen, 360–1440 px, contrast on 9 schemes. CI job "Admin UI" also checks the committed build is current | `docs/08` acceptance; screenshot diffs of other screens replaced by "our CSS/JS isn't loaded there" |
+| PHPCS cache | Removed: a stale cache hid findings locally that CI caught on the M7 push | Lint must match CI |
 
 ### M7 decisions and findings (2026-11-06)
 

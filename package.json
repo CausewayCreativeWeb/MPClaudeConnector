@@ -1,0 +1,21 @@
+{
+  "name": "causeway-claude-bridge",
+  "private": true,
+  "description": "Admin screen assets and browser tests for Claude Publishing Bridge.",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "build:css": "tailwindcss -i assets/src/admin.css -o assets/dist/admin.css --minify",
+    "build:js": "esbuild assets/src/js/admin.js --bundle --minify --format=iife --target=es2020 --legal-comments=none --outfile=assets/dist/admin.js",
+    "build": "npm run build:css && npm run build:js",
+    "dev": "npm run build:css -- --watch & npm run build:js -- --watch",
+    "test:e2e": "playwright test --trace off"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/cli": "4.3.5",
+    "alpinejs": "3.15.12",
+    "esbuild": "0.28.2",
+    "tailwindcss": "4.3.5"
+  }
+}
