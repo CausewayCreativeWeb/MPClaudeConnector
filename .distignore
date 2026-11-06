@@ -27,9 +27,8 @@ phpunit-integration.xml.dist
 CLAUDE.md
 README.md
 RELEASING.md
-setup-pack/extension/server/package.json
-setup-pack/extension/server/package-lock.json
+setup-pack/extension/server/src/*
+playwright.config.js
 vendor-prefixed/wordpress/mcp-adapter/bin/*
 vendor-prefixed/wordpress/php-mcp-schema/generator/*
 vendor-prefixed/wordpress/php-mcp-schema/docs/*
-playwright.config.js

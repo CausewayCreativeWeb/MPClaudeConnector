@@ -112,6 +112,7 @@ jobs:
           npm run build
           git diff --exit-code -- assets/dist
       - run: bin/check-asset-sizes.sh
+      - run: npm run build:extension
       - run: bin/install-wp-tests.sh 7.1.4
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --trace off

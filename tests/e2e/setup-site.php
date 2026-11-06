@@ -83,6 +83,11 @@ foreach ( $ccb_users as $ccb_user ) {
 	if ( 'contributor' === $ccb_user[0] ) {
 		WP_Application_Passwords::create_new_application_password( $ccb_id, array( 'name' => 'Sam – office laptop' ) );
 	}
+	if ( 'casey' === $ccb_user[0] ) {
+		// Used by setup-pack.spec.js to run the downloaded extension against this site.
+		$ccb_password = WP_Application_Passwords::create_new_application_password( $ccb_id, array( 'name' => 'Casey – test laptop' ) );
+		file_put_contents( $ccb_site . '/.e2e-app-password', 'casey:' . $ccb_password[0] );
+	}
 }
 
 echo "WordPress installed\n";

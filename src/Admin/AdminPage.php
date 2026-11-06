@@ -14,6 +14,8 @@ use Causeway\ClaudeBridge\Config\ConfigRepository;
 use Causeway\ClaudeBridge\Config\DefaultConfig;
 use Causeway\ClaudeBridge\Config\SiteStructure;
 use Causeway\ClaudeBridge\Roles\RoleManager;
+use Causeway\ClaudeBridge\SetupPack\SetupPackBuilder;
+use Causeway\ClaudeBridge\SetupPack\SetupPackDownload;
 
 /**
  * Registers the screen, loads its assets only there, and prints the app shell.
@@ -111,7 +113,8 @@ final class AdminPage {
 			'support'    => $config['support'],
 			'pluginVer'  => CCB_VERSION,
 			'setupPack'  => array(
-				'version' => PreFlight::latest_skill_version(),
+				'version'  => PreFlight::latest_skill_version(),
+				'download' => current_user_can( RoleManager::CAP_USE ) && ( new SetupPackBuilder() )->available() ? SetupPackDownload::url() : '',
 			),
 			'addUserUrl' => admin_url( 'user-new.php' ),
 			'i18n'       => self::strings(),

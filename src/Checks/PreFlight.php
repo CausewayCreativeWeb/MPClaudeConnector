@@ -57,7 +57,7 @@ final class PreFlight {
 	 * Latest skill version the site offers.
 	 */
 	public static function latest_skill_version(): string {
-		return (string) get_option( self::OPTION_SETUP_PACK_VERSION, CCB_VERSION );
+		return \Causeway\ClaudeBridge\SetupPack\SetupPackBuilder::VERSION;
 	}
 
 	/**

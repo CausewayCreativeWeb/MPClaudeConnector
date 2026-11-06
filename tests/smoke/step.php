@@ -102,6 +102,13 @@ switch ( $ccb_step ) {
 		ccb_smoke_check( null !== ( new Causeway\ClaudeBridge\Config\Presets() )->read( 'mp-site' ), 'MP site preset ships in the zip' );
 		$ccb_structure = ( new Causeway\ClaudeBridge\Config\SiteStructure() )->get();
 		ccb_smoke_check( in_array( 'post', array_column( $ccb_structure['post_types'], 'name' ), true ), 'Site discovery runs' );
+		$ccb_pack = new Causeway\ClaudeBridge\SetupPack\SetupPackBuilder();
+		ccb_smoke_check( $ccb_pack->available(), 'Setup pack sources (bundled proxy) ship in the zip' );
+		$ccb_pack_file = $ccb_pack->build();
+		$ccb_pack_zip  = new ZipArchive();
+		ccb_smoke_check( true === $ccb_pack_zip->open( $ccb_pack_file ) && 3 === $ccb_pack_zip->numFiles, 'Setup pack builds with extension, skill and how-to' ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- ZipArchive property.
+		$ccb_pack_zip->close();
+		wp_delete_file( $ccb_pack_file );
 		break;
 
 	case 'deactivate':

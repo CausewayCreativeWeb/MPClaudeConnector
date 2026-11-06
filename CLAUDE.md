@@ -67,6 +67,7 @@ bin/build-release.sh                # release zip in dist/
 bin/smoke-test.sh                   # installs the zip on fresh WordPress sites and checks it end to end
 npx wp-env start                    # optional local WordPress site with the plugin mounted
 npm install && npm run build        # admin CSS + JS (from M8)
+npm run build:extension             # bundles the Claude Desktop extension's proxy (from M9)
 npx playwright test                 # admin UI visual, keyboard and a11y tests (from M8)
 ```
 

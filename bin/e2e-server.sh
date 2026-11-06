@@ -46,6 +46,8 @@ define( 'DISABLE_WP_CRON', true );
 define( 'WP_HOME', 'http://127.0.0.1:$PORT' );
 define( 'WP_SITEURL', 'http://127.0.0.1:$PORT' );
 \$table_prefix = 'wp_';
+// Stand-in for HTTPS behind a proxy (as in bin/smoke-test.sh), so Application Passwords and abilities work over http://127.0.0.1.
+if ( isset( \$_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === \$_SERVER['HTTP_X_FORWARDED_PROTO'] ) { \$_SERVER['HTTPS'] = 'on'; }
 if ( ! defined( 'ABSPATH' ) ) { define( 'ABSPATH', __DIR__ . '/' ); }
 require_once ABSPATH . 'wp-settings.php';
 PHP

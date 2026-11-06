@@ -8,3 +8,5 @@
 /.wp-tests/
 /.phpunit.result.cache
 /.phpcs-cache
+/setup-pack/extension/server/index.js
+/setup-pack/extension/server/THIRD-PARTY-LICENSES.txt

@@ -76,6 +76,7 @@ final class Activation {
 		// The upload-link URL (/ccb-upload/<token>) needs its rewrite rule saved once.
 		UploadLinks::register_rewrite();
 		flush_rewrite_rules( false );
+		update_option( \Causeway\ClaudeBridge\Checks\PreFlight::OPTION_SETUP_PACK_VERSION, \Causeway\ClaudeBridge\SetupPack\SetupPackBuilder::VERSION, false );
 		update_option( self::OPTION_INSTALLED_VERSION, CCB_VERSION, true );
 	}
 

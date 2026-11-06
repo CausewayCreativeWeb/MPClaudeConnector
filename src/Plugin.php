@@ -20,6 +20,7 @@ use Causeway\ClaudeBridge\Config\SiteStructure;
 use Causeway\ClaudeBridge\Mcp\ServerRegistrar;
 use Causeway\ClaudeBridge\Media\UploadPage;
 use Causeway\ClaudeBridge\Roles\RoleManager;
+use Causeway\ClaudeBridge\SetupPack\SetupPackDownload;
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 /**
@@ -70,6 +71,7 @@ final class Plugin {
 		RestController::register_hooks();
 		AdminPage::register_hooks();
 		ProfileFields::register_hooks();
+		SetupPackDownload::register_hooks();
 
 		add_action( 'init', array( Activation::class, 'maybe_upgrade' ), 1 );
 		add_action( 'init', array( $this, 'load_textdomain' ) );

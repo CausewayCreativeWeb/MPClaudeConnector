@@ -30,12 +30,13 @@ if [ ! -f vendor-prefixed/autoload.php ]; then
 fi
 
 # Compiled admin assets (added in M8) and the bundled Claude Desktop proxy (added in M9).
-if [ -f package.json ]; then
-	npm ci --no-audit --no-fund
-	npm run build
-fi
-if [ -f setup-pack/extension/server/package.json ]; then
-	(cd setup-pack/extension/server && npm ci --omit=dev --no-audit --no-fund)
+command -v npm >/dev/null || { echo "Node and npm are needed to build the release (admin assets, setup pack)." >&2; exit 1; }
+npm ci --no-audit --no-fund
+npm run build
+npm run build:extension
+if [ ! -f setup-pack/extension/server/index.js ]; then
+	echo "setup-pack/extension/server/index.js is missing; the extension build failed." >&2
+	exit 1
 fi
 
 # Collect files: everything git knows about (tracked or new, not ignored) plus the generated folders.
@@ -57,7 +58,8 @@ mkdir -p "$STAGE" "$ROOT/dist"
 	git ls-files --cached --others --exclude-standard
 	find vendor-prefixed -type f
 	[ -d assets/dist ] && find assets/dist -type f
-	[ -d setup-pack/extension/server/node_modules ] && find setup-pack/extension/server/node_modules -type f
+	echo setup-pack/extension/server/index.js
+	echo setup-pack/extension/server/THIRD-PARTY-LICENSES.txt
 	true
 } | sort -u | while IFS= read -r path; do
 	[ -f "$path" ] || continue

@@ -640,7 +640,7 @@ final class RestController {
 	 * @return list<string>
 	 */
 	public static function audit_actions(): array {
-		return array( 'check', 'guide', 'list', 'get', 'create', 'update', 'upload_image', 'upload_link_created', 'upload_link_used', 'prepare', 'publish', 'schedule', 'update_live', 'unpublish', 'trash', 'restore', 'config_save', 'config_restore', 'config_import', 'preset_apply', 'role_change', 'app_password_revoke', 'health_check' );
+		return array( 'check', 'guide', 'list', 'get', 'create', 'update', 'upload_image', 'upload_link_created', 'upload_link_used', 'prepare', 'publish', 'schedule', 'update_live', 'unpublish', 'trash', 'restore', 'config_save', 'config_restore', 'config_import', 'preset_apply', 'role_change', 'app_password_revoke', 'health_check', 'setup_pack_download' );
 	}
 
 	/**
