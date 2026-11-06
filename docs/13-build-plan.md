@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1–M6 done**: all 21 abilities in `docs/03`, including the live changes with confirmation tokens. Next: M7 (audit details, notifications, health checks) |
+| Code | **M1–M7 done**: all 21 abilities in `docs/03`, live changes with confirmation tokens, emails, daily health check, live-URL checks and clean-up. Next: M8 (settings screen) |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -125,6 +125,20 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M7 decisions and findings (2026-11-06)
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| Email timing | Emails are queued during the request and sent on `shutdown`; HTML with a plain-text alternative, site name in the subject, support contact in the footer | `docs/07`: an ability's answer isn't held up by mail |
+| Recipients | Publishers (and admins where `docs/07` says so) plus the configured extra addresses; the person who made the change is never emailed about it | `docs/07` "Notifications" |
+| Bin email | Links to the Bin list for that post type, never a one-click restore or a nonce URL | Email links outlive nonces and shouldn't act on a click |
+| Live URL check | After publish, update-live, unpublish and Bin the public URL is fetched once (`ccb_check` cache-buster, no redirects, 10 s). Publish expects 200; removal accepts 404, 410 or a redirect. Failing to reach the site is reported, never an error | `docs/07` post verification. Cache purge for WP Rocket, W3 Total Cache and LiteSpeed, plus `ccb_purge_post_cache` for others |
+| Health check | Daily (03:15 site time) and 5 minutes after any plugin/theme/core update: pre-flight checks plus a probe of `/wp-json/mcp/ccb` that must answer 401 JSON (anything else: unreachable, cached, open or blocked by a firewall) | `docs/07` "Daily health check" |
+| Health alerts | Support contact and admins, once per problem per 24 hours; `check-connection` warns when the last check failed or is more than 2 days old | Avoids daily repeat emails for one problem |
+| Error bursts | 5 or more errors across all users in an hour email the support contact, at most hourly (uses the `health_failure` switch) | `docs/07` |
+| Clean-up | Daily (03:45): activity older than the retention period, tokens and upload links expired over a day ago, idempotency keys over a day old, temp files over an hour old | `docs/06` retention |
+| Tests | Integration tests answer outbound HTTP with a double (`ccb_check` URLs reflect the post's status), so nothing reaches the network | CI and cloud sessions have no outbound access to the test site |
 
 ### M6 decisions and findings (2026-11-06)
 

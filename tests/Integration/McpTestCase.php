@@ -43,6 +43,34 @@ abstract class McpTestCase extends IntegrationTestCase {
 		AbstractAbility::reset_request_state();
 		RequestContext::reset();
 		$this->session = null;
+		add_filter( 'pre_http_request', array( $this, 'http_double' ), 99, 3 );
+	}
+
+	/**
+	 * Stands in for HTTP: a post's public URL answers 200 when it's published and 404 otherwise;
+	 * anything else not answered by an earlier filter fails fast, so no test reaches the network.
+	 *
+	 * @param mixed  $pre  Earlier answer.
+	 * @param mixed  $args Request args.
+	 * @param string $url  URL.
+	 * @return mixed
+	 */
+	public function http_double( mixed $pre, mixed $args, string $url ): mixed {
+		unset( $args );
+		if ( false !== $pre ) {
+			return $pre;
+		}
+		if ( str_contains( $url, 'ccb_check=' ) ) {
+			$post_id = url_to_postid( remove_query_arg( 'ccb_check', $url ) );
+			$live    = $post_id > 0 && 'publish' === get_post_status( $post_id );
+			return array(
+				'response' => array( 'code' => $live ? 200 : 404 ),
+				'body'     => '',
+				'headers'  => array(),
+				'cookies'  => array(),
+			);
+		}
+		return new \WP_Error( 'http_request_failed', 'Blocked in tests: ' . $url );
 	}
 
 	public function tear_down(): void {

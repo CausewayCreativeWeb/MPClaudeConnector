@@ -248,10 +248,11 @@ final class PostWriter {
 		/**
 		 * Fires after the Bridge updates a draft or pending post.
 		 *
-		 * @param int    $post_id Post.
-		 * @param string $status  Status.
+		 * @param int    $post_id     Post.
+		 * @param string $status      Status after.
+		 * @param string $status_from Status before.
 		 */
-		do_action( 'ccb_post_updated', $post->ID, $status );
+		do_action( 'ccb_post_updated', $post->ID, $status, (string) $context->status_from );
 
 		return $response;
 	}

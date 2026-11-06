@@ -11,6 +11,8 @@ namespace Causeway\ClaudeBridge\Audit;
 
 use Causeway\ClaudeBridge\Config\ConfigRepository;
 use Causeway\ClaudeBridge\Db\Schema;
+use Causeway\ClaudeBridge\Notify\Mailer;
+use Causeway\ClaudeBridge\Notify\Notifications;
 
 /**
  * Writes one row per ability call (including refusals), admin change, role change and revoke.
@@ -19,6 +21,9 @@ use Causeway\ClaudeBridge\Db\Schema;
 final class ActivityLog {
 
 	public const RESULTS = array( 'success', 'rejected', 'error' );
+
+	public const BURST_THRESHOLD = 5;
+	public const BURST_TRANSIENT = 'ccb_error_alert';
 
 	/**
 	 * Keys allowed in a row; anything else goes in `details`.
@@ -60,7 +65,49 @@ final class ActivityLog {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- custom table.
 		$inserted = $wpdb->insert( Schema::table( Schema::ACTIVITY ), $row );
-		return false === $inserted ? 0 : (int) $wpdb->insert_id;
+		if ( false === $inserted ) {
+			return 0;
+		}
+		$id = (int) $wpdb->insert_id;
+		if ( 'error' === $row['result'] ) {
+			self::maybe_alert_error_burst();
+		}
+		return $id;
+	}
+
+	/**
+	 * Five or more errors across all users within an hour email the support contact, once an hour (docs/07).
+	 */
+	private static function maybe_alert_error_burst(): void {
+		if ( false !== get_transient( self::BURST_TRANSIENT ) ) {
+			return;
+		}
+		global $wpdb;
+		$table = Schema::table( Schema::ACTIVITY );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- custom table, name from constants.
+		$errors = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE result = 'error' AND created_at_gmt >= %s", gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ) ) );
+		if ( $errors < self::BURST_THRESHOLD ) {
+			return;
+		}
+		set_transient( self::BURST_TRANSIENT, time(), HOUR_IN_SECONDS );
+		$config = ( new ConfigRepository() )->get();
+		if ( empty( $config['notifications']['events']['health_failure'] ) ) {
+			return;
+		}
+		Mailer::queue(
+			array( (string) $config['support']['email'] ),
+			__( 'Repeated errors in Claude Publishing', 'causeway-claude-bridge' ),
+			array(
+				/* translators: %d: number of errors */
+				'heading' => sprintf( __( '%d errors in the last hour', 'causeway-claude-bridge' ), $errors ),
+				'intro'   => __( 'Something on the site is making Claude Publishing fail. Each error has a reference in the activity log and the PHP error log.', 'causeway-claude-bridge' ),
+				'link'    => array(
+					'url'   => admin_url( 'options-general.php?page=claude-publishing#activity' ),
+					'label' => __( 'Open the activity log', 'causeway-claude-bridge' ),
+				),
+				'footer'  => Notifications::footer(),
+			)
+		);
 	}
 
 	/**

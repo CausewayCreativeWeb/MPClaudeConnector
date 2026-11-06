@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Causeway\ClaudeBridge;
 
 use Causeway\ClaudeBridge\Abilities\AbilityRegistrar;
+use Causeway\ClaudeBridge\Checks\HealthCheck;
+use Causeway\ClaudeBridge\Checks\Pruner;
+use Causeway\ClaudeBridge\Notify\Notifications;
 use Causeway\ClaudeBridge\Config\SiteStructure;
 use Causeway\ClaudeBridge\Mcp\ServerRegistrar;
 use Causeway\ClaudeBridge\Media\UploadPage;
@@ -58,6 +61,9 @@ final class Plugin {
 		AbilityRegistrar::register_hooks();
 		ServerRegistrar::register();
 		UploadPage::register_hooks();
+		Notifications::register_hooks();
+		HealthCheck::register_hooks();
+		Pruner::register_hooks();
 
 		add_action( 'init', array( Activation::class, 'maybe_upgrade' ), 1 );
 		add_action( 'init', array( $this, 'load_textdomain' ) );

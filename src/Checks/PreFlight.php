@@ -63,10 +63,11 @@ final class PreFlight {
 	/**
 	 * Runs the checks.
 	 *
-	 * @param string|null $skill_version Skill version Claude reported, if any.
+	 * @param string|null $skill_version  Skill version Claude reported, if any.
+	 * @param bool        $include_health Whether to report the last daily health check (not when the check itself runs this).
 	 * @return list<array{code: string, severity: string, message: string, fix: string}>
 	 */
-	public function run( ?string $skill_version = null ): array {
+	public function run( ?string $skill_version = null, bool $include_health = true ): array {
 		$issues    = array();
 		$config    = $this->config->get();
 		$structure = $this->site->get();
@@ -127,6 +128,15 @@ final class PreFlight {
 
 		if ( ! ImagePipeline::webp_supported() ) {
 			$issues[] = self::issue( 'image_webp_unsupported', 'warning', __( 'The server can\'t create WebP images, so images will be kept as JPEG or PNG.', 'causeway-claude-bridge' ), __( 'Ask the host to enable WebP in Imagick or GD.', 'causeway-claude-bridge' ) );
+		}
+
+		if ( $include_health ) {
+			$health = HealthCheck::last();
+			if ( null !== $health && 'problem' === $health['status'] ) {
+				$issues[] = self::issue( 'health_failed', 'warning', __( 'The last daily check found a problem with the connection.', 'causeway-claude-bridge' ), __( 'The site\'s support contact has been emailed; tell them if something doesn\'t work.', 'causeway-claude-bridge' ) );
+			} elseif ( null !== $health && strtotime( (string) $health['checked_at_gmt'] ) < time() - HealthCheck::STALE_AFTER ) {
+				$issues[] = self::issue( 'health_stale', 'warning', __( 'The daily check hasn\'t run for over two days, so problems may go unnoticed.', 'causeway-claude-bridge' ), __( 'Ask the host to set up a real server cron for WordPress.', 'causeway-claude-bridge' ) );
+			}
 		}
 
 		if ( null !== $skill_version && '' !== $skill_version && version_compare( $skill_version, self::latest_skill_version(), '<' ) ) {

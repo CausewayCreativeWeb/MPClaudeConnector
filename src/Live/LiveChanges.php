@@ -12,6 +12,7 @@ namespace Causeway\ClaudeBridge\Live;
 use Causeway\ClaudeBridge\Abilities\AbilityContext;
 use Causeway\ClaudeBridge\Abilities\AbilityError;
 use Causeway\ClaudeBridge\Abilities\Sections;
+use Causeway\ClaudeBridge\Checks\LiveUrlCheck;
 use Causeway\ClaudeBridge\Checks\PostVerifier;
 use Causeway\ClaudeBridge\Content\ContentSanitiser;
 use Causeway\ClaudeBridge\Content\PostWriter;
@@ -142,7 +143,8 @@ final class LiveChanges {
 			return $plan;
 		}
 
-		$done = $this->act( $action, $post, $plan );
+		$old_url = 'publish' === $post->post_status ? (string) get_permalink( $post ) : '';
+		$done    = $this->act( $action, $post, $plan );
 		if ( $done instanceof WP_Error ) {
 			return $done;
 		}
@@ -179,6 +181,18 @@ final class LiveChanges {
 				),
 			)
 			: PostVerifier::verify( $post->ID, $section, $plan['guide'], $this->sections->config()['writing'], array( 'status' => $plan['summary']['to_status'] ) );
+
+		// Check the public page: live after publish/update, gone after unpublish/Bin (docs/07).
+		$url_check = null;
+		if ( in_array( $action, array( self::PUBLISH, self::UPDATE_LIVE ), true ) && 'publish' === $status && $after instanceof WP_Post ) {
+			$url_check = LiveUrlCheck::check( (string) get_permalink( $after ), true, LiveUrlCheck::purge( $post->ID ) );
+		} elseif ( in_array( $action, array( self::UNPUBLISH, self::TRASH ), true ) && '' !== $old_url ) {
+			$url_check = LiveUrlCheck::check( $old_url, false, LiveUrlCheck::purge( $post->ID ) );
+		}
+		if ( null !== $url_check ) {
+			$verification['checks'][] = $url_check;
+			$verification['passed']   = $verification['passed'] && $url_check['passed'];
+		}
 
 		return array(
 			'post_id'      => $post->ID,
