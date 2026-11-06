@@ -25,21 +25,31 @@ final class Mailer {
 	 */
 	private static array $queue = array();
 
+	/**
+	 * Whether the shutdown hook is added.
+	 *
+	 * @var bool
+	 */
 	private static bool $hooked = false;
 
 	/**
 	 * Queues an email.
 	 *
-	 * @param list<string>         $to      Addresses.
+	 * @param string[]             $to      Addresses.
 	 * @param string               $subject Subject without the site name.
 	 * @param array<string, mixed> $message heading, intro, rows (label => value), link (url, label), footer.
+	 * @phpstan-param list<string> $to
 	 */
 	public static function queue( array $to, string $subject, array $message ): void {
 		$to = array_values( array_unique( array_filter( $to, 'is_email' ) ) );
 		if ( array() === $to ) {
 			return;
 		}
-		self::$queue[] = compact( 'to', 'subject', 'message' );
+		self::$queue[] = array(
+			'to'      => $to,
+			'subject' => $subject,
+			'message' => $message,
+		);
 		if ( ! self::$hooked || false === has_action( 'shutdown', array( self::class, 'flush' ) ) ) {
 			add_action( 'shutdown', array( self::class, 'flush' ) );
 			self::$hooked = true;
@@ -60,20 +70,21 @@ final class Mailer {
 	/**
 	 * Sends one email now (also used for the test email).
 	 *
-	 * @param list<string>         $to      Addresses.
+	 * @param string[]             $to      Addresses.
 	 * @param string               $subject Subject without the site name.
 	 * @param array<string, mixed> $message Message parts.
+	 * @phpstan-param list<string> $to
 	 */
 	public static function send( array $to, string $subject, array $message ): bool {
-		$site    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
-		$html    = self::render( $message );
-		$text    = self::plain_text( $message );
-		$alt     = static function ( $mailer ) use ( $text ): void {
+		$site = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$html = self::render( $message );
+		$text = self::plain_text( $message );
+		$alt  = static function ( $mailer ) use ( $text ): void {
 			if ( $mailer instanceof PHPMailer ) {
 				$mailer->AltBody = $text; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- PHPMailer's property.
 			}
 		};
-		$type    = static fn (): string => 'text/html';
+		$type = static fn (): string => 'text/html';
 		add_action( 'phpmailer_init', $alt );
 		add_filter( 'wp_mail_content_type', $type );
 		$sent = wp_mail( $to, sprintf( '[%s] %s', $site, $subject ), $html );
@@ -94,7 +105,7 @@ final class Mailer {
 	 * @return list<string>
 	 */
 	public static function publisher_emails( int $exclude = 0 ): array {
-		$users = get_users(
+		$users  = get_users(
 			array(
 				'role__in' => array( 'administrator', RoleManager::ROLE_PUBLISHER ),
 				'exclude'  => $exclude > 0 ? array( $exclude ) : array(),
@@ -116,7 +127,17 @@ final class Mailer {
 	 * @return list<string>
 	 */
 	public static function admin_emails(): array {
-		return array_values( array_map( 'strval', get_users( array( 'role' => 'administrator', 'fields' => 'user_email' ) ) ) );
+		return array_values(
+			array_map(
+				'strval',
+				get_users(
+					array(
+						'role'   => 'administrator',
+						'fields' => 'user_email',
+					)
+				)
+			)
+		);
 	}
 
 	/**

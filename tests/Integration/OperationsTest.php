@@ -93,7 +93,7 @@ final class OperationsTest extends McpTestCase {
 	 * A News post ready to publish.
 	 */
 	private function ready_post(): int {
-		$post = self::factory()->post->create(
+		$post  = self::factory()->post->create(
 			array(
 				'post_title'   => 'Crossing reopens',
 				'post_status'  => 'pending',
@@ -116,7 +116,11 @@ final class OperationsTest extends McpTestCase {
 	}
 
 	public function test_pending_post_emails_publishers_but_not_the_author(): void {
-		$this->change_config( static function ( array &$c ): void { $c['notifications']['recipients']['extra'] = array( 'office@example.org' ); } );
+		$this->change_config(
+			static function ( array &$c ): void {
+				$c['notifications']['recipients']['extra'] = array( 'office@example.org' );
+			}
+		);
 		$this->login_as( RoleManager::ROLE_CONTRIBUTOR );
 
 		$this->data( $this->call_tool( 'ccb-create-post', array( 'section' => 'news', 'title' => 'For review', 'content' => '<p>' . str_repeat( 'w ', 200 ) . '</p>' ) ) );
@@ -145,7 +149,11 @@ final class OperationsTest extends McpTestCase {
 	}
 
 	public function test_switched_off_events_send_nothing(): void {
-		$this->change_config( static function ( array &$c ): void { $c['notifications']['events']['pending_post'] = false; } );
+		$this->change_config(
+			static function ( array &$c ): void {
+				$c['notifications']['events']['pending_post'] = false;
+			}
+		);
 		$this->login_as( RoleManager::ROLE_CONTRIBUTOR );
 
 		$this->data( $this->call_tool( 'ccb-create-post', array( 'section' => 'news', 'title' => 'Quiet', 'content' => '<p>' . str_repeat( 'w ', 200 ) . '</p>' ) ) );
@@ -158,7 +166,7 @@ final class OperationsTest extends McpTestCase {
 		$post = $this->ready_post();
 		wp_set_current_user( $this->admin );
 		$this->session = null;
-		$token = $this->data( $this->call_tool( 'ccb-prepare-publish', array( 'post_id' => $post ) ) )['token'];
+		$token         = $this->data( $this->call_tool( 'ccb-prepare-publish', array( 'post_id' => $post ) ) )['token'];
 		$this->data( $this->call_tool( 'ccb-publish-post', array( 'post_id' => $post, 'token' => $token ) ) );
 		Mailer::flush();
 
@@ -225,8 +233,8 @@ final class OperationsTest extends McpTestCase {
 		);
 		wp_set_current_user( $this->admin );
 		$this->session = null;
-		$token = $this->data( $this->call_tool( 'ccb-prepare-publish', array( 'post_id' => $post ) ) )['token'];
-		$done  = $this->data( $this->call_tool( 'ccb-publish-post', array( 'post_id' => $post, 'token' => $token ) ) );
+		$token         = $this->data( $this->call_tool( 'ccb-prepare-publish', array( 'post_id' => $post ) ) )['token'];
+		$done          = $this->data( $this->call_tool( 'ccb-publish-post', array( 'post_id' => $post, 'token' => $token ) ) );
 
 		$this->assertSame( array( $post ), $purged );
 		$this->assertStringNotContainsString( 'Cached copies', array_column( $done['verification']['checks'], null, 'name' )['live_url']['message'] );
