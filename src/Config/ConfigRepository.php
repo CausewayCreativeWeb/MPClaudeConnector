@@ -30,12 +30,35 @@ final class ConfigRepository {
 	private SchemaValidator $validator;
 
 	/**
+	 * Live site structure.
+	 *
+	 * @var SiteStructure
+	 */
+	private SiteStructure $site;
+
+	/**
 	 * Sets up the repository.
 	 *
 	 * @param SchemaValidator|null $validator Validator; a default one is created when null.
+	 * @param SiteStructure|null   $site      Site discovery; a default one is created when null.
 	 */
-	public function __construct( ?SchemaValidator $validator = null ) {
+	public function __construct( ?SchemaValidator $validator = null, ?SiteStructure $site = null ) {
 		$this->validator = $validator ?? new SchemaValidator();
+		$this->site      = $site ?? new SiteStructure();
+	}
+
+	/**
+	 * Validates a config: the schema, then the live site.
+	 *
+	 * @param array<string, mixed> $config Config.
+	 * @param string               $mode   SiteChecks::MODE_SAVE (missing site objects are errors) or MODE_STORED (warnings).
+	 */
+	public function validate( array $config, string $mode = SiteChecks::MODE_SAVE ): ValidationResult {
+		$result = $this->validator->validate( $config );
+		if ( $result->is_valid() ) {
+			SiteChecks::check( $config, $this->site->get(), $result, $mode );
+		}
+		return $result;
 	}
 
 	/**
@@ -72,7 +95,7 @@ final class ConfigRepository {
 	 * Validates the stored config. Pre-flight uses this to report `ccb_config_invalid`.
 	 */
 	public function validate_stored(): ValidationResult {
-		return $this->validator->validate( $this->get() );
+		return $this->validate( $this->get(), SiteChecks::MODE_STORED );
 	}
 
 	/**
@@ -83,9 +106,10 @@ final class ConfigRepository {
 	 * @param string               $source       One of self::SOURCES.
 	 * @param string|null          $note         Optional note for the version history.
 	 * @param int|null             $base_version Version the editor started from; a newer live version means someone else saved first.
+	 * @param bool                 $accept_warnings Whether the admin confirmed the warnings (docs/08 save flow).
 	 * @return array<string, mixed>|WP_Error Saved config, or an error with `errors`/`warnings` in its data.
 	 */
-	public function save( array $config, int $user_id, string $source, ?string $note = null, ?int $base_version = null ): array|WP_Error {
+	public function save( array $config, int $user_id, string $source, ?string $note = null, ?int $base_version = null, bool $accept_warnings = false ): array|WP_Error {
 		if ( ! in_array( $source, self::SOURCES, true ) ) {
 			return new WP_Error( 'ccb_invalid_input', __( 'Unknown config source.', 'causeway-claude-bridge' ), array( 'status' => 400 ) );
 		}
@@ -108,7 +132,7 @@ final class ConfigRepository {
 		$config['saved_by']     = $user_id;
 		$config['saved_at_gmt'] = gmdate( 'Y-m-d\TH:i:s\Z' );
 
-		$result = $this->validator->validate( $config );
+		$result = $this->validate( $config );
 		if ( ! $result->is_valid() ) {
 			return new WP_Error(
 				'ccb_config_invalid',
@@ -116,6 +140,18 @@ final class ConfigRepository {
 				array(
 					'status'   => 400,
 					'errors'   => $result->errors(),
+					'warnings' => $result->warnings(),
+				)
+			);
+		}
+
+		if ( array() !== $result->warnings() && ! $accept_warnings ) {
+			return new WP_Error(
+				'ccb_config_needs_confirm',
+				__( 'Please confirm the warnings before saving.', 'causeway-claude-bridge' ),
+				array(
+					'status'   => 409,
+					'errors'   => array(),
 					'warnings' => $result->warnings(),
 				)
 			);

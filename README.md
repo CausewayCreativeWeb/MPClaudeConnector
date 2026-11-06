@@ -6,7 +6,7 @@ WordPress plugin (`causeway-claude-bridge`) that lets named staff draft, edit, p
 - Specs (source of truth): [`docs/`](docs/)
 - Build plan and progress: [`docs/13-build-plan.md`](docs/13-build-plan.md)
 
-Status: milestone 1 (plugin skeleton) done. The plugin activates, creates its roles, tables and default configuration, and uninstalls cleanly; it doesn't connect to Claude yet.
+Status: milestones 1 and 2 done. The plugin activates, creates its roles, tables and default configuration, discovers the site's post types, terms and ACF fields, checks the configuration against them, and builds the publishing guide Claude will read. It doesn't connect to Claude yet (milestone 3).
 
 ## Development
 

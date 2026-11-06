@@ -99,6 +99,9 @@ switch ( $ccb_step ) {
 		ccb_smoke_check( 1 === $ccb_repo->version(), 'Default config stored as version 1' );
 		ccb_smoke_check( $ccb_repo->validate_stored()->is_valid(), 'Stored config is valid' );
 		ccb_smoke_check( false !== wp_next_scheduled( 'ccb_daily_health' ) && false !== wp_next_scheduled( 'ccb_daily_prune' ), 'Daily jobs scheduled' );
+		ccb_smoke_check( null !== ( new Causeway\ClaudeBridge\Config\Presets() )->read( 'mp-site' ), 'MP site preset ships in the zip' );
+		$ccb_structure = ( new Causeway\ClaudeBridge\Config\SiteStructure() )->get();
+		ccb_smoke_check( in_array( 'post', array_column( $ccb_structure['post_types'], 'name' ), true ), 'Site discovery runs' );
 		break;
 
 	case 'deactivate':

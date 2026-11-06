@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1 done** (skeleton, tooling, release build, smoke test). Next: M2 |
+| Code | **M1 and M2 done** (skeleton, tooling, release build, smoke test; site discovery, live config checks, publishing guide, presets). Next: M3 |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -121,10 +121,25 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bridge-only users | `user_has_cap` strips forbidden capabilities (e.g. `unfiltered_html`, `manage_categories`) from users whose only roles are Bridge roles, even if another plugin adds them | `docs/09`: Bridge roles must never hold them |
 | Network activation | Refused with a message; activate per site | Multisite isn't in scope |
 | Activation on WordPress < 6.9 | WordPress core refuses first, from the `Requires at least` header; the plugin's own check (WP version, Abilities API, bundled libraries present) is the second line | Verified by the smoke test on 6.8.12 |
-| Uninstall role mapping | Implemented as `docs/06` says: AI Contributor → Contributor, AI Publisher → **Editor** | **Flag:** `docs/06` says this is "so nobody gains rights", but Editor has more rights than AI Publisher (e.g. `unfiltered_html`, pages). Ask the client whether Author would be better |
+| Uninstall role mapping | As `docs/06` says: AI Contributor → Contributor, AI Publisher → **Editor** | Editor has more rights than AI Publisher (e.g. `unfiltered_html`, pages); the client confirmed Editor on 2026-11-06 |
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M2 decisions and findings (2026-11-06)
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| Live checks on save vs stored | `SiteChecks` runs after the schema. On save, a missing post type, term, taxonomy or ACF field is an **error**; for the stored config the same things are **warnings** with code `config_stale`, and the guide leaves them out | `docs/04` validation rules |
+| Warnings need confirming | `ConfigRepository::save()` returns `ccb_config_needs_confirm` (409, with the warnings) unless `accept_warnings` is true | `docs/08` save flow step 4 |
+| Post types with their own capabilities | Warning, not error (`post_type_capabilities`) | `docs/02`: flag in the admin UI |
+| ACF rules | Fields with no rule take `required` if ACF marks them required, otherwise `optional`. A rule other than `hidden` on an unwritable ACF type is an error. An extra field may not reuse an ACF field's name | `docs/04` supported types; avoids two writers for one field |
+| Preset file format | `{ "label", "description", "config": { …partial config… } }`; terms written as `"slug:<slug>"` | `docs/04` shows the partial config and `<resolved: slug …>` placeholders, not a file format |
+| Preset merge | Preset values win; lists are replaced; settings the preset doesn't mention are kept; sections whose post type is missing are skipped and reported | `docs/04` "only maps post types that exist" |
+| Guide tool names | The guide refers to abilities by their ability names (e.g. `ccb/get-upload-link`) until M3 confirms the MCP tool names | `docs/10`: tool names come from the pinned adapter |
+| Elementor templates | Read from `elementor_library` posts with `_elementor_template_type` of `single`/`single-post` and conditions in `_elementor_conditions` | **Still TO CONFIRM** against the site's Elementor Pro version at the site audit |
+| `multiple` in guide taxonomies | Always `true` | WordPress lets every taxonomy hold several terms; nothing in the config limits it |
+| Discovery cache | Cleared on term create/edit/delete, ACF field group save/delete and plugin (de)activation, otherwise 5 minutes. Not on `registered_post_type`, which fires on every request | `docs/04` |
 
 ### M1 — Skeleton
 Files: `causeway-claude-bridge.php` (with the missing-build guard), `uninstall.php`, Strauss config in `composer.json`, `.distignore`, `bin/build-release.sh`, `src/Plugin.php`, `src/Activation.php`, `src/Roles/RoleManager.php`, `src/Config/ConfigRepository.php`, `src/Config/SchemaValidator.php`, `schema/config.schema.json`, `src/Db/Schema.php` (all five tables via `dbDelta`, `ccb_db_version`).

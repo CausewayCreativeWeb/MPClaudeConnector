@@ -13,6 +13,7 @@ set -euo pipefail
 
 WP_VERSION="${1:-${WP_VERSION:-6.9.11}}"
 SQLITE_VERSION="${SQLITE_VERSION:-v3.1.3}"
+ACF_VERSION="${ACF_VERSION:-6.8.10}"
 DB_MODE="${WP_TESTS_DB:-sqlite}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BASE="${WP_TESTS_BASE:-$ROOT/.wp-tests}"
@@ -37,6 +38,15 @@ if [ ! -f "$LIB_DIR/includes/bootstrap.php" ]; then
 	mkdir -p "$LIB_DIR"
 	mv "$BASE/develop-tmp/tests/phpunit/includes" "$BASE/develop-tmp/tests/phpunit/data" "$LIB_DIR/"
 	rm -rf "$BASE/develop-tmp"
+fi
+
+# ACF (free) for the Insights fixtures: local field groups, acf_get_field_groups(), update_field().
+ACF_DIR="$CORE_DIR/wp-content/plugins/advanced-custom-fields"
+if [ ! -f "$ACF_DIR/acf.php" ]; then
+	echo "Fetching ACF $ACF_VERSION..."
+	rm -rf "$ACF_DIR"
+	git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$ACF_VERSION" https://github.com/AdvancedCustomFields/acf.git "$ACF_DIR"
+	rm -rf "$ACF_DIR/.git"
 fi
 
 if [ "$DB_MODE" = "sqlite" ]; then

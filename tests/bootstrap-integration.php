@@ -36,6 +36,13 @@ require_once $ccb_tests_dir . '/includes/functions.php';
 tests_add_filter(
 	'muplugins_loaded',
 	static function () use ( $ccb_root ): void {
+		// ACF (if the harness installed it) and test doubles of the client's existing plugins.
+		if ( file_exists( WP_PLUGIN_DIR . '/advanced-custom-fields/acf.php' ) ) {
+			require WP_PLUGIN_DIR . '/advanced-custom-fields/acf.php';
+		}
+		foreach ( glob( $ccb_root . '/tests/fixtures/mu-plugins/*.php' ) as $ccb_fixture ) {
+			require $ccb_fixture;
+		}
 		require $ccb_root . '/causeway-claude-bridge.php';
 	}
 );

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Causeway\ClaudeBridge;
 
+use Causeway\ClaudeBridge\Config\SiteStructure;
 use Causeway\ClaudeBridge\Roles\RoleManager;
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
@@ -50,6 +51,7 @@ final class Plugin {
 		$this->booted = true;
 
 		RoleManager::register_hooks();
+		SiteStructure::register_hooks();
 
 		add_action( 'init', array( Activation::class, 'maybe_upgrade' ), 1 );
 		add_action( 'init', array( $this, 'load_textdomain' ) );
