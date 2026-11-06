@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1–M3 done** (skeleton, tooling, release build, smoke test; site discovery, publishing guide, presets; MCP server and read abilities). Next: M4 |
+| Code | **M1–M4 done** (skeleton, tooling, release build, smoke test; site discovery, publishing guide, presets; MCP server and read abilities; create and update). Next: M5 |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -125,6 +125,24 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M4 decisions and findings (2026-11-06)
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| Required fields at create | Not refused: the post is saved and verification flags what's missing (fields, terms, featured image). Enforced at publish/schedule (M6) | `docs/05` "create allows missing with a failed verification check", and `docs/03` rule 6 "so work isn't lost". `docs/03` rule 5's "required fields enforced" read as at publish |
+| `status` input | Schema accepts `draft`, `pending`, `publish`, `future`. AI Contributors always get `pending`, whatever is sent; AI Publishers get `ccb_wrong_status` for `publish`/`future` | `docs/11`: "Contributor create-post with status: publish → stored as pending" (a schema enum would have rejected it instead) |
+| Featured image | Missing when required: post saved, verification fails. Present but too small or the wrong shape (±3%): refused with `ccb_field_invalid` | `docs/03` rule 6 and `docs/05` image rules |
+| Terms | Accepted as IDs, slugs, or (extra) exact names. Unknown → `ccb_term_unknown`; only integer IDs reach `wp_set_object_terms()`, so nothing is ever created. Update replaces terms only for the taxonomies sent | Non-negotiable 7 |
+| Titles | Plain text (tags stripped), up to 200 characters | MP Visits prints titles unescaped (`docs/reference/mp-visits-findings.md`) |
+| Unsafe links | `javascript:`, `data:` and similar links are unwrapped (text kept) **before** `wp_kses()`, which would otherwise leave a meaningless relative link | Found by the sanitiser tests |
+| Word count | `str_word_count()` of the text without tags, with a space added after block elements first | The literal formula joins words across tags ("words" + "and" → "wordsand") |
+| Excerpt, SEO lengths | Too long → shortened at a word boundary with a warning (both) | `docs/05` says so for the excerpt; SEO follows the same rule |
+| Duplicate check | Same post type and exact title with `post_date` in the last 24 hours (drafts have no GMT date), any status except Bin | `docs/03` rule 8 |
+| MP Visits save routine | Runs on every save (its `$_POST` reads raise PHP warnings on the real site). `visits_location` is written after the save, so the routine never sees or deletes it. The test double counts the warnings instead of raising them | `docs/05`; compatibility report item |
+| `page_link` / `post_object` | Stored as a post ID; `page_link` also accepts a URL on this site | `docs/05` table |
+| Hooks for later | `ccb_post_created` and `ccb_post_updated` actions fire after successful writes | Notifications (M7) |
+| Content images | Must already be in the Media Library; the 800px minimum and the image pipeline come with M5 | `docs/05` |
 
 ### M3 decisions and findings (2026-11-06)
 

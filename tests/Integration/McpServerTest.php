@@ -36,16 +36,22 @@ final class McpServerTest extends McpTestCase {
 		}
 	}
 
-	public function test_read_tools_are_annotated_read_only(): void {
+	public function test_tools_carry_behaviour_annotations(): void {
 		$this->login_as( RoleManager::ROLE_CONTRIBUTOR );
 		$this->initialize();
 
 		[ , $body ] = $this->rpc( 'tools/list' );
 		$body       = json_decode( (string) wp_json_encode( $body ), true );
-		foreach ( $body['result']['tools'] as $tool ) {
-			$this->assertTrue( $tool['annotations']['readOnlyHint'] ?? false, $tool['name'] );
-			$this->assertFalse( $tool['annotations']['destructiveHint'] ?? true, $tool['name'] );
+		$tools      = array_column( $body['result']['tools'], 'annotations', 'name' );
+
+		foreach ( array( 'ccb-check-connection', 'ccb-get-publishing-guide', 'ccb-list-sections', 'ccb-list-terms', 'ccb-list-posts', 'ccb-get-post' ) as $read ) {
+			$this->assertTrue( $tools[ $read ]['readOnlyHint'] ?? false, $read );
+			$this->assertFalse( $tools[ $read ]['destructiveHint'] ?? true, $read );
 		}
+		$this->assertFalse( $tools['ccb-create-post']['readOnlyHint'] ?? true );
+		$this->assertFalse( $tools['ccb-create-post']['idempotentHint'] ?? true );
+		$this->assertFalse( $tools['ccb-update-post']['readOnlyHint'] ?? true );
+		$this->assertTrue( $tools['ccb-update-post']['idempotentHint'] ?? false );
 	}
 
 	public function test_default_server_and_meta_abilities_are_not_created(): void {

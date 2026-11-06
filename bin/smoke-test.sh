@@ -93,7 +93,7 @@ http_checks() {
 	local tools
 	tools=$(curl -s -X POST "${mcp[@]}" "$url" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
 		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $n=array_column($b["result"]["tools"]??[],"name"); sort($n); echo implode(",",$n);')
-	[ "$tools" = "ccb-check-connection,ccb-get-post,ccb-get-publishing-guide,ccb-list-posts,ccb-list-sections,ccb-list-terms" ] \
+	[ "$tools" = "ccb-check-connection,ccb-create-post,ccb-get-post,ccb-get-publishing-guide,ccb-list-posts,ccb-list-sections,ccb-list-terms,ccb-update-post" ] \
 		|| { echo "FAIL: unexpected tools: $tools" >&2; return 1; }
 	echo "  ok  tools/list has only the ccb tools: $tools"
 
@@ -103,6 +103,13 @@ http_checks() {
 		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo ($d["user"]["display_name"]??"?")."|".($d["credential"]["name"]??"?")."|".implode(",",array_column($d["sections"]??[],"key"));')
 	[ "$check" = "Sarah Jones|Sarah - office laptop|news" ] || { echo "FAIL: check-connection returned '$check'" >&2; return 1; }
 	echo "  ok  check-connection over HTTP: $check"
+
+	local created
+	created=$(curl -s -X POST "${mcp[@]}" "$url" \
+		-d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"ccb-create-post","arguments":{"section":"news","title":"Smoke test post","content":"<h1>Hello</h1><p>From the smoke test.</p>","status":"publish","idempotency_key":"smoke-test-0001"}}}' \
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo ($d["status"]??"error: ".($b["result"]["content"][0]["text"]??"?"));')
+	[ "$created" = "pending" ] || { echo "FAIL: create-post returned '$created'" >&2; return 1; }
+	echo "  ok  create-post over HTTP: AI Contributor's post saved as pending (publish was asked for)"
 
 	status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${headers[@]}" -u "sarah:wrong-password" "$url" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
 	[ "$status" = "401" ] || { echo "FAIL: wrong password returned $status" >&2; return 1; }

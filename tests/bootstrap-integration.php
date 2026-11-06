@@ -60,4 +60,6 @@ require $ccb_tests_dir . '/includes/bootstrap.php';
 // Start the REST server (and with it the bundled MCP Adapter) before any test runs. The adapter logs
 // a one-off "bundled copy" deprecation notice on start-up (upstream 0.7.0); it belongs to the
 // environment, not to whichever test happens to run first.
+add_filter( 'deprecated_function_trigger_error', '__return_false' );
 rest_get_server();
+remove_filter( 'deprecated_function_trigger_error', '__return_false' );

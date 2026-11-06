@@ -28,6 +28,8 @@ final class AbilityRegistrar {
 		ListTerms::class,
 		ListPosts::class,
 		GetPost::class,
+		CreatePost::class,
+		UpdatePost::class,
 	);
 
 	/**

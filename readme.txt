@@ -20,3 +20,4 @@ Each person works under their own WordPress login and their own Application Pass
 * Plugin skeleton: requirement checks, activation, AI Contributor and AI Publisher roles, database tables, versioned configuration with validation, uninstall.
 * Site discovery, configuration checks against the live site, publishing guide, MP site preset.
 * Dedicated MCP server with the read abilities: check connection, publishing guide, sections, terms, posts.
+* Create and update posts: content sanitising, terms, ACF and extra fields, Visits postcode lookup, SEO fields, duplicate and retry protection, post verification.
