@@ -480,9 +480,12 @@ final class PostWriter {
 		if ( 'attachment' !== get_post_type( $attachment_id ) || ! wp_attachment_is_image( $attachment_id ) ) {
 			return AbilityError::make( 'ccb_field_invalid', __( 'The featured image must be an image in the Media Library.', 'causeway-claude-bridge' ), 400, 'featured_image_id', __( 'Upload it with upload-image first.', 'causeway-claude-bridge' ) );
 		}
-		$meta   = wp_get_attachment_metadata( $attachment_id );
-		$width  = is_array( $meta ) ? (int) $meta['width'] : 0;
-		$height = is_array( $meta ) ? (int) $meta['height'] : 0;
+		$meta = wp_get_attachment_metadata( $attachment_id );
+		if ( ! is_array( $meta ) || empty( $meta['width'] ) || empty( $meta['height'] ) ) {
+			return AbilityError::make( 'ccb_field_invalid', __( 'The featured image\'s size couldn\'t be read.', 'causeway-claude-bridge' ), 400, 'featured_image_id', __( 'Upload it again with upload-image.', 'causeway-claude-bridge' ) );
+		}
+		$width  = (int) $meta['width'];
+		$height = max( 1, (int) $meta['height'] );
 
 		if ( $rules['min_width'] > 0 && $width < $rules['min_width'] ) {
 			return AbilityError::make(
@@ -494,7 +497,7 @@ final class PostWriter {
 				__( 'Ask for a larger image.', 'causeway-claude-bridge' )
 			);
 		}
-		if ( 'any' !== $rules['ratio'] && $width > 0 && $height > 0 ) {
+		if ( 'any' !== $rules['ratio'] ) {
 			[ $rw, $rh ] = array_map( 'intval', explode( ':', $rules['ratio'] ) );
 			$expected    = $rw / $rh;
 			$actual      = $width / $height;
