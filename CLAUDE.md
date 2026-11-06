@@ -26,6 +26,7 @@ Read the specs in `docs/` before writing code. They are the source of truth. If 
 | `docs/13-build-plan.md` | Build sequencing, tooling, test environments and per-milestone exit criteria |
 | `docs/reference/existing-plugins.md` | The site's existing MP Visits and Causeway Insights plugins (read-only reference) |
 | `docs/reference/mp-visits-findings.md` | MP Visits source findings: confirmed `visits_location` format, postcode service, map behaviour |
+| `docs/reference/mcp-adapter-notes.md` | MCP Adapter 0.7.1 answers: server creation, default server, naming, errors, coexistence, bundling deprecation |
 
 ## Non-negotiables
 

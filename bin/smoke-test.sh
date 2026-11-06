@@ -49,14 +49,64 @@ define( 'WP_DEBUG', true );
 define( 'WP_DEBUG_DISPLAY', false );
 define( 'WP_DEBUG_LOG', '$site/debug.log' );
 define( 'DISABLE_WP_CRON', true );
-define( 'WP_HOME', 'http://localhost' );
-define( 'WP_SITEURL', 'http://localhost' );
+
 \$table_prefix = 'wp_';
+// Behind a TLS-terminating proxy: trust X-Forwarded-Proto (the smoke test's stand-in for HTTPS).
+if ( isset( \$_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === \$_SERVER['HTTP_X_FORWARDED_PROTO'] ) { \$_SERVER['HTTPS'] = 'on'; }
 if ( ! defined( 'ABSPATH' ) ) { define( 'ABSPATH', __DIR__ . '/' ); }
 require_once ABSPATH . 'wp-settings.php';
 PHP
 	unzip -q "$ZIP" -d "$site/wp-content/plugins"
 	echo "$site"
+}
+
+# Talks to the plugin's MCP endpoint over real HTTP, authenticating with an Application Password,
+# the way the Claude Desktop extension will. PHP's built-in server stands in for the web server;
+# X-Forwarded-Proto marks the request as HTTPS (see the wp-config snippet above).
+http_checks() {
+	local site="$1" port log url credentials
+	port=$(( 20000 + RANDOM % 20000 ))
+	log="$site/http.log"
+	php -S "127.0.0.1:$port" -t "$site" >"$log" 2>&1 &
+	local server=$!
+	trap 'kill $server 2>/dev/null || true' RETURN
+	for _ in $(seq 1 50); do curl -s -o /dev/null "http://127.0.0.1:$port/" && break; sleep 0.1; done
+
+	url="http://127.0.0.1:$port/?rest_route=/mcp/ccb"
+	credentials="$(cat "$site/.smoke-credentials")"
+	local headers=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -H 'X-Forwarded-Proto: https')
+
+	local status
+	status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${headers[@]}" "$url" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+	[ "$status" = "401" ] || { echo "FAIL: unauthenticated request returned $status, expected 401" >&2; return 1; }
+	echo "  ok  Unauthenticated request gets 401"
+
+	local session
+	session=$(curl -s -D - -o /dev/null -X POST "${headers[@]}" -u "$credentials" "$url" \
+		-d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"smoke","version":"1.0"}}}' \
+		| tr -d '\r' | awk 'tolower($1)=="mcp-session-id:"{print $2}')
+	[ -n "$session" ] || { echo "FAIL: initialize returned no session" >&2; return 1; }
+	echo "  ok  MCP initialize with an Application Password"
+	local mcp=("${headers[@]}" -H "Mcp-Session-Id: $session" -H 'MCP-Protocol-Version: 2025-11-25' -u "$credentials")
+	curl -s -o /dev/null -X POST "${mcp[@]}" "$url" -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+
+	local tools
+	tools=$(curl -s -X POST "${mcp[@]}" "$url" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $n=array_column($b["result"]["tools"]??[],"name"); sort($n); echo implode(",",$n);')
+	[ "$tools" = "ccb-check-connection,ccb-get-post,ccb-get-publishing-guide,ccb-list-posts,ccb-list-sections,ccb-list-terms" ] \
+		|| { echo "FAIL: unexpected tools: $tools" >&2; return 1; }
+	echo "  ok  tools/list has only the ccb tools: $tools"
+
+	local check
+	check=$(curl -s -X POST "${mcp[@]}" "$url" \
+		-d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ccb-check-connection","arguments":{"skill_version":"0.1.0"}}}' \
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo ($d["user"]["display_name"]??"?")."|".($d["credential"]["name"]??"?")."|".implode(",",array_column($d["sections"]??[],"key"));')
+	[ "$check" = "Sarah Jones|Sarah - office laptop|news" ] || { echo "FAIL: check-connection returned '$check'" >&2; return 1; }
+	echo "  ok  check-connection over HTTP: $check"
+
+	status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${headers[@]}" -u "sarah:wrong-password" "$url" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+	[ "$status" = "401" ] || { echo "FAIL: wrong password returned $status" >&2; return 1; }
+	echo "  ok  Wrong Application Password gets 401"
 }
 
 step() {
@@ -73,6 +123,10 @@ for version in $SUPPORTED; do
 	step "$site" install
 	step "$site" activate
 	step "$site" check-active
+	step "$site" configure
+	echo "- http (MCP over HTTP with an Application Password)"
+	http_checks "$site"
+	step "$site" check-activity
 	step "$site" add-users
 	step "$site" deactivate
 	step "$site" check-deactivated

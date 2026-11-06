@@ -19,3 +19,4 @@ Each person works under their own WordPress login and their own Application Pass
 = 0.1.0 =
 * Plugin skeleton: requirement checks, activation, AI Contributor and AI Publisher roles, database tables, versioned configuration with validation, uninstall.
 * Site discovery, configuration checks against the live site, publishing guide, MP site preset.
+* Dedicated MCP server with the read abilities: check connection, publishing guide, sections, terms, posts.

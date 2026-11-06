@@ -96,7 +96,7 @@ switch ( $ccb_step ) {
 		ccb_smoke_check( null !== get_role( 'ccb_contributor' ) && null !== get_role( 'ccb_publisher' ), 'AI Contributor and AI Publisher roles exist' );
 		ccb_smoke_check( user_can( 1, 'ccb_publish' ), 'Administrator can publish through the Bridge' );
 		$ccb_repo = new Causeway\ClaudeBridge\Config\ConfigRepository();
-		ccb_smoke_check( 1 === $ccb_repo->version(), 'Default config stored as version 1' );
+		ccb_smoke_check( $ccb_repo->version() >= 1, 'Config stored (version ' . $ccb_repo->version() . ')' );
 		ccb_smoke_check( $ccb_repo->validate_stored()->is_valid(), 'Stored config is valid' );
 		ccb_smoke_check( false !== wp_next_scheduled( 'ccb_daily_health' ) && false !== wp_next_scheduled( 'ccb_daily_prune' ), 'Daily jobs scheduled' );
 		ccb_smoke_check( null !== ( new Causeway\ClaudeBridge\Config\Presets() )->read( 'mp-site' ), 'MP site preset ships in the zip' );
@@ -142,6 +142,28 @@ switch ( $ccb_step ) {
 		ccb_smoke_check( array( 'contributor' ) === array_values( get_user_by( 'login', 'contrib' )->roles ), 'AI Contributor moved to Contributor' );
 		ccb_smoke_check( array( 'editor' ) === array_values( get_user_by( 'login', 'pub' )->roles ), 'AI Publisher moved to Editor' );
 		ccb_smoke_check( null !== get_page_by_path( 'kept-after-uninstall', OBJECT, 'post' ) || 1 === count( get_posts( array( 'title' => 'Kept after uninstall', 'post_status' => 'any' ) ) ), 'Posts untouched' );
+		break;
+
+	case 'configure':
+		// MP preset with real terms, a contributor and an Application Password for the HTTP checks.
+		wp_insert_term( 'News', 'category', array( 'slug' => 'news' ) );
+		Causeway\ClaudeBridge\Config\SiteStructure::clear_cache();
+		$ccb_repo    = new Causeway\ClaudeBridge\Config\ConfigRepository();
+		$ccb_preview = ( new Causeway\ClaudeBridge\Config\Presets() )->preview( 'mp-site', $ccb_repo->get(), ( new Causeway\ClaudeBridge\Config\SiteStructure() )->get() );
+		$ccb_saved   = $ccb_repo->save( $ccb_preview['config'], 1, 'preset' );
+		ccb_smoke_check( is_array( $ccb_saved ), 'MP preset saved (only News on a clean site: Insights and Visits need their plugins)' );
+		$ccb_user = wp_insert_user( array( 'user_login' => 'sarah', 'user_pass' => wp_generate_password(), 'user_email' => 's@example.org', 'role' => 'ccb_contributor', 'display_name' => 'Sarah Jones' ) );
+		ccb_smoke_check( is_int( $ccb_user ), 'Contributor created' );
+		$ccb_password = WP_Application_Passwords::create_new_application_password( $ccb_user, array( 'name' => 'Sarah - office laptop' ) );
+		ccb_smoke_check( is_array( $ccb_password ), 'Application Password created' );
+		file_put_contents( $ccb_site . '/.smoke-credentials', 'sarah:' . $ccb_password[0] );
+		break;
+
+	case 'check-activity':
+		$ccb_row = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}ccb_activity WHERE ability = 'ccb/check-connection' ORDER BY id DESC LIMIT 1", ARRAY_A );
+		ccb_smoke_check( is_array( $ccb_row ) && 'success' === $ccb_row['result'], 'check-connection logged as a success' );
+		ccb_smoke_check( 'Sarah - office laptop' === $ccb_row['app_password_name'], 'Activity row names the device (Application Password)' );
+		ccb_smoke_check( 36 === strlen( (string) $ccb_row['app_password_uuid'] ), 'Activity row has the Application Password UUID' );
 		break;
 
 	case 'activate-refused':

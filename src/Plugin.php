@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Causeway\ClaudeBridge;
 
+use Causeway\ClaudeBridge\Abilities\AbilityRegistrar;
 use Causeway\ClaudeBridge\Config\SiteStructure;
+use Causeway\ClaudeBridge\Mcp\ServerRegistrar;
 use Causeway\ClaudeBridge\Roles\RoleManager;
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
@@ -52,6 +54,8 @@ final class Plugin {
 
 		RoleManager::register_hooks();
 		SiteStructure::register_hooks();
+		AbilityRegistrar::register_hooks();
+		ServerRegistrar::register();
 
 		add_action( 'init', array( Activation::class, 'maybe_upgrade' ), 1 );
 		add_action( 'init', array( $this, 'load_textdomain' ) );

@@ -7,17 +7,17 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1 and M2 done** (skeleton, tooling, release build, smoke test; site discovery, live config checks, publishing guide, presets). Next: M3 |
+| Code | **M1–M3 done** (skeleton, tooling, release build, smoke test; site discovery, publishing guide, presets; MCP server and read abilities). Next: M4 |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
 
 | Item | Spec | Source | How to resolve |
 | --- | --- | --- | --- |
-| Custom MCP server creation; hiding the default server and its `discover-abilities` / `execute-ability` tools; adapter init hook | `01`, `03` | `wordpress/mcp-adapter` 0.7.1 `docs/` | Read the pinned docs in `vendor/` after `composer install`. Record answers in `docs/reference/mcp-adapter-notes.md` |
-| Ability meta keys for `readonly` / `destructive` / `idempotent` annotations; MCP resources support (`ccb://publishing-guide`) | `03` | Adapter 0.7.1 | As above |
-| Application Password name/UUID lookup under the adapter's transport | `02` | Adapter + core | Check `rest_get_authenticated_app_password()` works on the adapter's REST route; integration test |
-| Abilities API hook names (expected `wp_abilities_api_categories_init`, `wp_abilities_api_init`) | `01` | WP 6.9 core | Read core source |
+| Custom MCP server creation; hiding the default server and its `discover-abilities` / `execute-ability` tools; adapter init hook | `01`, `03` | `wordpress/mcp-adapter` 0.7.1 `docs/` | **Resolved in M3**, see `docs/reference/mcp-adapter-notes.md` |
+| Ability meta keys for `readonly` / `destructive` / `idempotent` annotations; MCP resources support (`ccb://publishing-guide`) | `03` | Adapter 0.7.1 | **Resolved in M3** (as above) |
+| Application Password name/UUID lookup under the adapter's transport | `02` | Adapter + core | **Resolved in M3**: works; verified over real HTTP in the smoke test |
+| Abilities API hook names (expected `wp_abilities_api_categories_init`, `wp_abilities_api_init`) | `01` | WP 6.9 core | **Resolved in M3**: confirmed |
 | `visits_location` JSON shape and the postcode service the admin map uses | `05`, reference | `visits-admin-map.js` in MP Visits 1.3 | **Resolved** from client-supplied source: `{"lat":<number>,"lng":<number>}`; postcodes.io with the compact postcode. See `docs/reference/mp-visits-findings.md` |
 | Elementor Pro single-template condition meta keys | `04` | Site's Elementor Pro version | Site audit |
 | SEO plugin in use | `05` | Client | **Resolved:** SEOPress on all Causeway sites. Writes go to `_seopress_titles_title` and `_seopress_titles_desc` (per `docs/05`); still confirm the keys against the installed SEOPress version during the site audit |
@@ -125,6 +125,22 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M3 decisions and findings (2026-11-06)
+
+Adapter answers are in `docs/reference/mcp-adapter-notes.md`. Other points:
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| **Bundled adapter is deprecated upstream** | Kept, prefixed with Strauss; all adapter code isolated in `src/Mcp/` | Standalone plugin requirement. **Needs a decision before 1.0** (see the notes) |
+| Error text | Every error message ends `[code: ccb_…; field: …; retry_after: …; ref: …]` | The adapter passes only the message text to Claude, and the skill keys on codes |
+| List outputs | `list-sections` returns `{ "sections": […] }` and `list-terms` returns `{ "terms": […] }` rather than a bare list | MCP structured results must be objects. `docs/03` shapes are marked abbreviated |
+| Extra output | `check-connection` also returns `support` (the support contact) | The skill must show it when `ok` is false (`docs/07`), and only this tool runs before anything else |
+| Where checks happen | Endpoint: logged in and `ccb_use_connection`, else 401/403. Each ability: HTTPS, capability, publish capability, then rate limit and its own rules. Refusals and core input-schema failures are audited | `docs/02` enforcement; the health check expects 401 from the endpoint |
+| Draft dates | `date_gmt` for drafts is worked out by WordPress from the local date (drafts store no GMT date) | Otherwise drafts would show no date |
+| Pre-flight in M3 | Config validity and staleness, no sections, missing post type, ACF inactive, Elementor template coverage, WebP support, skill version. Health-check age and adapter drift come in M7 | `docs/07` table |
+| Adapter diagnostics | Own handler: refusals and errors with a `ccb_*` code are not written to the PHP log (they're in the activity log); everything else is | Avoids filling the PHP log with normal "not allowed" answers |
+| `get-post` permission | Also requires `edit_post` on that post | It returns raw content; Bridge roles can edit others' posts anyway |
 
 ### M2 decisions and findings (2026-11-06)
 
