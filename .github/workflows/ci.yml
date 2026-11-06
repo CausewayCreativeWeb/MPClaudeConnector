@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: PHPCS and PHPStan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - run: composer install --no-interaction --no-progress --working-dir=tools/phpstan
+      - run: vendor/bin/phpcs
+      - run: tools/phpstan/vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+  unit:
+    name: Unit (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - run: composer test:unit
+
+  integration:
+    name: Integration (WP ${{ matrix.wp }}, PHP ${{ matrix.php }}, MySQL)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { wp: '6.9.11', php: '8.1' }
+          - { wp: '6.9.11', php: '8.3' }
+          - { wp: '7.1.4', php: '8.3' }
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_tests
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: mysqli, gd
+          tools: composer:v2
+      - run: composer install --no-interaction --no-progress
+      - name: Set up WordPress and the test library
+        env:
+          WP_TESTS_DB: mysql
+          DB_NAME: wordpress_tests
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_HOST: 127.0.0.1:3306
+        run: bin/install-wp-tests.sh ${{ matrix.wp }}
+      - name: Integration tests
+        env:
+          WP_TESTS_DIR: ${{ github.workspace }}/.wp-tests/wordpress-tests-lib-${{ matrix.wp }}
+        run: composer test:integration
+
+  release:
+    name: Release zip and smoke test (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: pdo_sqlite, gd
+          tools: composer:v2
+      - name: Build the release zip
+        run: bin/build-release.sh
+      - name: Smoke test the zip on a clean site
+        run: bin/smoke-test.sh
+      - name: Keep the zip for manual upload to the update server
+        if: matrix.php == '8.1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: causeway-claude-bridge-zip
+          path: dist/*.zip
+          if-no-files-found: error

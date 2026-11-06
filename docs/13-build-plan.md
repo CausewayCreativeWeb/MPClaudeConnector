@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | Not started |
+| Code | **M1 done** (skeleton, tooling, release build, smoke test). Next: M2 |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -43,10 +43,10 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 ### Test environments
 | Environment | Use |
 | --- | --- |
-| `wp-env` (`.wp-env.json`) | Developer machines and CI. WP 6.9, PHP 8.1 and 8.3, ACF, Elementor, fixtures |
-| WP + SQLite (`bin/install-wp-tests-sqlite.sh`) | Containers without Docker (e.g. cloud Claude Code sessions). Downloads WP core and the `wordpress-develop` test library, installs the `sqlite-database-integration` drop-in and ACF. Same fixtures. `composer test:integration` picks it when no MySQL is configured |
+| `wp-env` (`.wp-env.json`) | Developer machines: a browsable local site with the plugin mounted. ACF, Elementor and fixtures are added as later milestones need them |
+| `bin/install-wp-tests.sh` | Integration tests everywhere. Clones WordPress core and the matching `wordpress-develop` test library from GitHub (wordpress.org is unreachable from cloud sessions). `WP_TESTS_DB=sqlite` (default) uses the SQLite drop-in, so it needs no database server; `WP_TESTS_DB=mysql` is what CI uses against MySQL 8 |
 
-MySQL-specific behaviour (`dbDelta` index syntax, `VARBINARY` IP column, `LONGTEXT`) is confirmed in CI on `wp-env`; SQLite runs are a fast local check, not the final word.
+MySQL-specific behaviour (`dbDelta` index syntax, `VARBINARY` IP column, `LONGTEXT`) is confirmed in CI on MySQL; SQLite runs are a fast local check, not the final word.
 
 ### Fixtures (`tests/fixtures/mu-plugins/`)
 Replicas, from `docs/reference/existing-plugins.md`, of:
@@ -57,7 +57,7 @@ Replicas, from `docs/reference/existing-plugins.md`, of:
 These are test doubles only; the real plugins are never modified (D9).
 
 ### CI (`.github/workflows/ci.yml`)
-PHPCS, PHPStan, PHPUnit unit, PHPUnit integration on `wp-env` (PHP 8.1 and 8.3), Playwright, `npm run build` with a check that `assets/dist` is unchanged, `mcpb validate`, and the release-zip smoke test below.
+PHPCS, PHPStan, PHPUnit unit (PHP 8.1, 8.3), PHPUnit integration on MySQL 8 (WP 6.9.11 on PHP 8.1 and 8.3; WP 7.1.4 on PHP 8.3), Playwright (from M8), `npm run build` with a check that `assets/dist` is unchanged, `mcpb validate`, and the release-zip smoke test below.
 
 ## 1a. Packaging and distribution (standalone plugin)
 
@@ -87,9 +87,9 @@ Another plugin on a client site may load its own copy of the MCP Adapter, Opis J
 3. `npm ci --omit=dev` in `setup-pack/extension/server/` so the pinned `@automattic/mcp-wordpress-remote` is bundled for the Claude Desktop extension (`docs/10`).
 4. Copy into `build/causeway-claude-bridge/` using `.distignore`. Excluded: `tests/`, `docs/`, root `node_modules/`, `assets/src/`, `bin/`, dev configs (`phpcs.xml.dist`, `phpstan.neon.dist`, `.wp-env.json`, `package*.json`, `composer.*`), the unprefixed `vendor/`, and `.git*`.
 5. Zip as `causeway-claude-bridge-<version>.zip` with the folder `causeway-claude-bridge/` at its root.
-6. Generate the `plugin-update-checker` metadata JSON (version, `requires` 6.9, `requires_php` 8.1, download URL, changelog) for the self-hosted update server. Distribution is by **manual upload** to `repo.causewaycreative.co.uk` (confirmed 2026-11-06): CI attaches the zip and metadata JSON to the tagged release as build artifacts, and a person uploads both. Release checklist in `RELEASING.md` (M10): bump version, tag, wait for green CI and smoke test, download the artifacts, upload to the update server, then confirm a staging site sees the update.
+6. Update metadata: the update server's `?action=get_metadata&slug=…` URL is the standard WP Update Server API, which builds the metadata itself from the uploaded zip's plugin header and `readme.txt` (requirements, changelog). So the release carries a `readme.txt` and no separate JSON. **Confirm on the first release** that the server behaves this way; if it doesn't, add a metadata step here. Distribution is by **manual upload** to `repo.causewaycreative.co.uk` (confirmed 2026-11-06): CI keeps the zip as a build artifact, and a person uploads it. Release checklist in `RELEASING.md` (M10): bump version, tag, wait for green CI and smoke test, download the artifacts, upload to the update server, then confirm a staging site sees the update.
 
-The version number lives in one place (plugin header) and is checked against the `CCB_VERSION` constant, setup pack version and update metadata in CI.
+The version number lives in the plugin header; the build fails if the `CCB_VERSION` constant or the `readme.txt` stable tag disagree (setup pack version added in M9).
 
 ### Release-zip smoke test (CI)
 On a clean WordPress with **no other plugins**:
@@ -104,6 +104,27 @@ On a clean WordPress with **no other plugins**:
 ## 2. Milestones
 
 Same order as `docs/12`. Each ends with passing tests and a commit.
+
+### M1 decisions and findings (2026-11-06)
+
+Gaps the specs don't cover, filled during M1. None changes a decision in `docs/00`.
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| Upgrade detection | New option `ccb_installed_version` (autoloaded). Setup re-runs on `init` when it differs from `CCB_VERSION` | `docs/06` says roles are "updated on plugin upgrade", and activation hooks don't fire on updates |
+| "Delete all data on uninstall" | Stored as option `ccb_delete_data_on_uninstall` (default off), not in the config | Kept out of exported/imported configs so an import can't switch on data deletion |
+| Default support contact | Defaults to the site's admin email; name and URL empty | `support.email` is required, and activation must store a valid default config |
+| Numeric ranges not in `docs/04` | `max_edge_px` 800–6000, `min_width` 0–6000, word limits 0–20000, `excerpt_max_chars` 0–1000, `max_images` 0–50, SEO title 10–200 and description 50–400, label/notes/house style lengths as specified | Every number needs a bound; adjust if the client wants others |
+| Config map encoding | Empty maps (`sections`, `default_terms`, `field_rules`, `extra_fields`) are stored as JSON objects (`{}`) | PHP can't tell an empty list from an empty map; the schema expects objects |
+| Version numbering | The next config version continues from the history table as well as the option | Avoids a unique-key clash if the option is lost while history remains |
+| Role names | Stored untranslated ("AI Contributor", "AI Publisher") | Same as core roles; translated when displayed (M8) |
+| Bridge-only users | `user_has_cap` strips forbidden capabilities (e.g. `unfiltered_html`, `manage_categories`) from users whose only roles are Bridge roles, even if another plugin adds them | `docs/09`: Bridge roles must never hold them |
+| Network activation | Refused with a message; activate per site | Multisite isn't in scope |
+| Activation on WordPress < 6.9 | WordPress core refuses first, from the `Requires at least` header; the plugin's own check (WP version, Abilities API, bundled libraries present) is the second line | Verified by the smoke test on 6.8.12 |
+| Uninstall role mapping | Implemented as `docs/06` says: AI Contributor → Contributor, AI Publisher → **Editor** | **Flag:** `docs/06` says this is "so nobody gains rights", but Editor has more rights than AI Publisher (e.g. `unfiltered_html`, pages). Ask the client whether Author would be better |
+| Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
+| PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
+| `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
 
 ### M1 — Skeleton
 Files: `causeway-claude-bridge.php` (with the missing-build guard), `uninstall.php`, Strauss config in `composer.json`, `.distignore`, `bin/build-release.sh`, `src/Plugin.php`, `src/Activation.php`, `src/Roles/RoleManager.php`, `src/Config/ConfigRepository.php`, `src/Config/SchemaValidator.php`, `schema/config.schema.json`, `src/Db/Schema.php` (all five tables via `dbDelta`, `ccb_db_version`).

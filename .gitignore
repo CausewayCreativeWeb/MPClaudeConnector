@@ -1,0 +1,10 @@
+/vendor/
+/vendor-prefixed/
+/tools/phpstan/vendor/
+/tools/phpstan/composer.lock
+/node_modules/
+/build/
+/dist/
+/.wp-tests/
+/.phpunit.result.cache
+/.phpcs-cache

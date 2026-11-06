@@ -56,15 +56,20 @@ Read the specs in `docs/` before writing code. They are the source of truth. If 
 ## Commands
 
 ```bash
-composer install            # PHP deps incl. MCP Adapter (pinned)
-npm install                 # Tailwind CLI, esbuild, Alpine, Playwright
-npm run dev                 # watch admin CSS + JS
-npm run build               # minified assets to assets/dist (committed)
-npx wp-env start            # local WordPress 6.9+ with ACF, Elementor and fixtures
-composer test               # PHPUnit (unit + integration via wp-env)
-composer lint               # PHPCS + PHPStan
-npx playwright test         # admin UI visual, keyboard and a11y tests
+composer install                    # PHP deps incl. MCP Adapter (pinned); Strauss prefixes them into vendor-prefixed/
+composer install -d tools/phpstan   # PHPStan, kept apart from the plugin's dependencies
+composer test:unit                  # PHPUnit unit tests (no WordPress)
+bin/install-wp-tests.sh [version]   # WordPress + test library from GitHub; SQLite by default, WP_TESTS_DB=mysql for MySQL
+composer test:integration           # PHPUnit integration tests (needs the step above)
+composer lint                       # PHPCS + PHPStan
+bin/build-release.sh                # release zip in dist/
+bin/smoke-test.sh                   # installs the zip on fresh WordPress sites and checks it end to end
+npx wp-env start                    # optional local WordPress site with the plugin mounted
+npm install && npm run build        # admin CSS + JS (from M8)
+npx playwright test                 # admin UI visual, keyboard and a11y tests (from M8)
 ```
+
+In cloud sessions GitHub zip downloads are blocked: use `composer install --prefer-source`, and run PHPStan from its release phar (see `docs/13`, M1 decisions).
 
 ## Build order
 

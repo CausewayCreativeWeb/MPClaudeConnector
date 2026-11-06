@@ -1,0 +1,87 @@
+{
+    "name": "causeway/causeway-claude-bridge",
+    "description": "Claude Publishing Bridge: lets named staff draft, edit, publish and remove WordPress posts from Claude, safely.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.1",
+        "wordpress/mcp-adapter": "0.7.1",
+        "opis/json-schema": "2.6.0",
+        "yahnis-elsts/plugin-update-checker": "5.7"
+    },
+    "require-dev": {
+        "brianhenryie/strauss": "0.31.1",
+        "phpunit/phpunit": "^9.6",
+        "yoast/phpunit-polyfills": "^4.0",
+        "brain/monkey": "^2.7",
+        "wp-coding-standards/wpcs": "^3.4",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Causeway\\ClaudeBridge\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Causeway\\ClaudeBridge\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.1.0"
+        },
+        "sort-packages": true,
+        "allow-plugins": {
+            "automattic/jetpack-autoloader": false,
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "extra": {
+        "strauss": {
+            "target_directory": "vendor-prefixed",
+            "namespace_prefix": "Causeway\\ClaudeBridge\\Vendor\\",
+            "classmap_prefix": "CCB_Vendor_",
+            "constant_prefix": "CCB_VENDOR_",
+            "packages": [
+                "wordpress/mcp-adapter",
+                "opis/json-schema",
+                "yahnis-elsts/plugin-update-checker"
+            ],
+            "exclude_from_copy": {
+                "packages": [
+                    "automattic/jetpack-autoloader"
+                ]
+            },
+            "exclude_from_prefix": {
+                "packages": [
+                    "yahnis-elsts/plugin-update-checker"
+                ]
+            },
+            "delete_vendor_packages": false,
+            "delete_vendor_files": false
+        }
+    },
+    "scripts": {
+        "prefix-namespaces": [
+            "strauss"
+        ],
+        "post-install-cmd": [
+            "@prefix-namespaces"
+        ],
+        "post-update-cmd": [
+            "@prefix-namespaces"
+        ],
+        "test": [
+            "@test:unit",
+            "@test:integration"
+        ],
+        "test:unit": "phpunit -c phpunit-unit.xml.dist",
+        "test:integration": "phpunit -c phpunit-integration.xml.dist",
+        "lint": [
+            "phpcs",
+            "@phpstan"
+        ],
+        "phpstan": "tools/phpstan/vendor/bin/phpstan analyse --memory-limit=1G"
+    }
+}

@@ -1,0 +1,14 @@
+includes:
+	- tools/phpstan/vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+	level: 6
+	phpVersion: 80100
+	paths:
+		- causeway-claude-bridge.php
+		- uninstall.php
+		- src
+	scanFiles:
+		- tools/phpstan/vendor/php-stubs/acf-pro-stubs/acf-pro-stubs.php
+	bootstrapFiles:
+		- tests/phpstan-bootstrap.php
