@@ -32,6 +32,17 @@ final class AbilityRegistrar {
 		UpdatePost::class,
 		UploadImage::class,
 		GetUploadLink::class,
+		PreparePublish::class,
+		PublishPost::class,
+		PrepareSchedule::class,
+		SchedulePost::class,
+		PrepareUpdateLive::class,
+		UpdateLivePost::class,
+		PrepareUnpublish::class,
+		UnpublishPost::class,
+		PrepareTrash::class,
+		TrashPost::class,
+		RestorePost::class,
 	);
 
 	/**

@@ -7,7 +7,7 @@ How the specs in `docs/00`–`12` turn into code. This adds sequencing, tooling 
 | Item | State |
 | --- | --- |
 | Specs | In repo (`CLAUDE.md`, `docs/`) |
-| Code | **M1–M5 done** (skeleton, tooling, release build, smoke test; site discovery, publishing guide, presets; MCP server and read abilities; create and update; images, upload links, PDFs). Next: M6 |
+| Code | **M1–M6 done**: all 21 abilities in `docs/03`, including the live changes with confirmation tokens. Next: M7 (audit details, notifications, health checks) |
 | Pinned versions (latest at planning, 2026-11-06) | `wordpress/mcp-adapter` **0.7.1**, `@automattic/mcp-wordpress-remote` **0.5.5** |
 
 ## 0. Before writing code: resolve TO CONFIRM items
@@ -125,6 +125,23 @@ Gaps the specs don't cover, filled during M1. None changes a decision in `docs/0
 | Bundled update checker | `plugin-update-checker` is copied into `vendor-prefixed/` but not namespace-prefixed | It's built to coexist with other plugins' copies (versioned namespaces), and the other MP plugins bundle it too |
 | PHPStan | Kept in `tools/phpstan/` with its own `composer.json` | It ships only as a GitHub zip, which cloud sessions can't download; CI installs it normally |
 | `wp-phpunit/wp-phpunit` | Not used; the test library is cloned from `wordpress-develop` at the same tag as core | Lets tests run against any WordPress version (6.9.11 and 7.1.4 locally) |
+
+### M6 decisions and findings (2026-11-06)
+
+| Topic | What was done | Why |
+| --- | --- | --- |
+| Token order | The action loads the post, then uses up the token (atomically), then re-runs every check against the post as it is now, then acts | `docs/02`: "consumed on the first verify, even if the action then fails validation" |
+| Token error codes | Missing, unknown, expired, used, someone else's, other post or other action → `ccb_token_invalid`; post modified since prepare → `ccb_post_changed`; different change sent → `ccb_token_mismatch` | `docs/02` token rules |
+| Payload bound to the token | publish/unpublish/trash: nothing extra; schedule: the publish time (as a timestamp, so equivalent formats match); update-live: the `changes` object with keys sorted | `docs/02` "hash of the pending change" |
+| Ready to go live | Publish and schedule need: required terms, required fields, featured image (when required) with alt text, and not over the maximum words. Under the minimum stays a warning | `docs/03` "never bypasses a rule that create only warned about"; `docs/05` minimum is a warning |
+| Elementor-built posts | `update-live` refuses content changes only; title, terms, fields and image can change | `docs/05` is explicit; `docs/03`'s one-line "refused on Elementor-built posts" read as the same rule as `update-post` |
+| Publish date | Publishing sets the date to now | A draft's old date (or a future one) would otherwise be kept |
+| Schedule times | Without an offset they're UK time (`Europe/London`), as `docs/03` says, whatever the site's timezone; the summary shows site time | `docs/03` "Dates". Worth revisiting for a non-UK client |
+| Bin switched off | If `EMPTY_TRASH_DAYS` is 0, moving to the Bin is refused | WordPress would delete permanently instead (non-negotiable 5) |
+| Daily cap | Checked at prepare and at the action; counted when an action succeeds. Restore doesn't count | `docs/02` limits |
+| Restore | Needs `delete_post` on the post; the status is forced to draft for that call | `docs/03` |
+| Summary | Also includes the author; notes say "Publishers will be emailed" only when notifications are switched on for that event | `docs/02` summary contents; emails come in M7 |
+| Hooks for M7 | `ccb_live_change` (action, post, summary) and `ccb_post_restored` | Notifications |
 
 ### M5 decisions and findings (2026-11-06)
 

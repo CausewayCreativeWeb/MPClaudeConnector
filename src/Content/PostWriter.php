@@ -423,7 +423,7 @@ final class PostWriter {
 	 * @param array<string, mixed>     $prepared From prepare().
 	 * @param array<string, list<int>> $terms    Terms to write.
 	 */
-	private function write_extras( int $post_id, array $prepared, array $terms ): void {
+	public function write_extras( int $post_id, array $prepared, array $terms ): void {
 		TermResolver::write( $post_id, $terms );
 		FieldWriter::write( $post_id, $prepared['fields'] );
 
@@ -551,7 +551,7 @@ final class PostWriter {
 	 * @param string $key Section key.
 	 * @return array<string, mixed>
 	 */
-	private function guide( string $key ): array {
+	public function guide( string $key ): array {
 		return PublishingGuide::build( $this->sections->config(), $this->sections->structure(), $key )['sections'][0];
 	}
 

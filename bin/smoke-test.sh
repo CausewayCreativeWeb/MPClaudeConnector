@@ -93,7 +93,7 @@ http_checks() {
 	local tools
 	tools=$(curl -s -X POST "${mcp[@]}" "$url" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
 		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $n=array_column($b["result"]["tools"]??[],"name"); sort($n); echo implode(",",$n);')
-	[ "$tools" = "ccb-check-connection,ccb-create-post,ccb-get-post,ccb-get-publishing-guide,ccb-get-upload-link,ccb-list-posts,ccb-list-sections,ccb-list-terms,ccb-update-post,ccb-upload-image" ] \
+	[ "$tools" = "ccb-check-connection,ccb-create-post,ccb-get-post,ccb-get-publishing-guide,ccb-get-upload-link,ccb-list-posts,ccb-list-sections,ccb-list-terms,ccb-prepare-publish,ccb-prepare-schedule,ccb-prepare-trash,ccb-prepare-unpublish,ccb-prepare-update-live,ccb-publish-post,ccb-restore-post,ccb-schedule-post,ccb-trash-post,ccb-unpublish-post,ccb-update-live-post,ccb-update-post,ccb-upload-image" ] \
 		|| { echo "FAIL: unexpected tools: $tools" >&2; return 1; }
 	echo "  ok  tools/list has only the ccb tools: $tools"
 
@@ -147,6 +147,21 @@ http_checks() {
 	result=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Forwarded-Proto: https' "$page")
 	[ "$result" = "410" ] || { echo "FAIL: used link returned $result, expected 410" >&2; return 1; }
 	echo "  ok  The link works once (410 afterwards)"
+
+	# A confirmed live change: prepare → token → action, then restore (always as a draft).
+	local call prepared token_value trashed restored
+	call() { curl -s -X POST "${mcp[@]}" "$url" -d "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}" \
+		| php -r '$b=json_decode(stream_get_contents(STDIN),true); $d=$b["result"]["structuredContent"]??json_decode($b["result"]["content"][0]["text"]??"",true); echo is_array($d) ? json_encode($d) : "ERROR ".($b["result"]["content"][0]["text"]??"?");'; }
+	prepared=$(call ccb-prepare-trash "{\"post_id\":$post_id}")
+	token_value=$(php -r 'echo json_decode($argv[1],true)["token"]??"";' "$prepared")
+	php -r 'exit(in_array("Can be restored for 30 days.", json_decode($argv[1],true)["summary"]["notes"]??[], true) ? 0 : 1);' "$prepared" \
+		|| { echo "FAIL: prepare-trash returned $prepared" >&2; return 1; }
+	trashed=$(call ccb-trash-post "{\"post_id\":$post_id,\"token\":\"$token_value\"}" | php -r 'echo json_decode(stream_get_contents(STDIN),true)["status"]??"?";')
+	[ "$trashed" = "trash" ] || { echo "FAIL: trash-post returned '$trashed'" >&2; return 1; }
+	[[ "$(call ccb-trash-post "{\"post_id\":$post_id,\"token\":\"$token_value\"}")" == *"ccb_"* ]] || { echo "FAIL: a used token was accepted" >&2; return 1; }
+	restored=$(call ccb-restore-post "{\"post_id\":$post_id}" | php -r 'echo json_decode(stream_get_contents(STDIN),true)["status"]??"?";')
+	[ "$restored" = "draft" ] || { echo "FAIL: restore-post returned '$restored'" >&2; return 1; }
+	echo "  ok  Live change over HTTP: prepare-trash summary, trash-post with the token, token refused on reuse, restored as a draft"
 
 	status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${headers[@]}" -u "sarah:wrong-password" "$url" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
 	[ "$status" = "401" ] || { echo "FAIL: wrong password returned $status" >&2; return 1; }

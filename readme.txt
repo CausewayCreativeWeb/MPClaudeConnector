@@ -22,3 +22,4 @@ Each person works under their own WordPress login and their own Application Pass
 * Dedicated MCP server with the read abilities: check connection, publishing guide, sections, terms, posts.
 * Create and update posts: content sanitising, terms, ACF and extra fields, Visits postcode lookup, SEO fields, duplicate and retry protection, post verification.
 * Images and files: image pipeline (upright, resized, metadata removed, WebP), one-time upload links, PDFs for file fields.
+* Live changes with confirmation: publish, schedule, update live, unpublish and move to the Bin, each prepared with a summary and a single-use token; restore from the Bin as a draft.
